@@ -1,0 +1,35 @@
+# Simulation and build artifacts
+sim/
+build/
+*.vvp
+*.fst
+*.gtkw
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Synthesis artifacts
+syn/icebreaker/build/
+*.bit
+*.bin
+*.json
+*.asc
+
+# IDE
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Cocotb
+results.xml
+
+# Venv
+venv/
+
+# Misc
+.env
