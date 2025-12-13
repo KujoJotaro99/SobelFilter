@@ -1,3 +1,5 @@
+"""Coverage: reset, single and multi read/write, random traffic, boundary address, read/write priority."""
+
 import random
 
 import cocotb
@@ -65,6 +67,55 @@ async def test_sync_ram_block_write_read_multi_separate(dut, width, depth):
         await Timer(1, "step")
         assert int(dut.data_o.value) == val, f"Read data mismatch at addr {i}: got={int(dut.data_o.value)}, expected={val}"
 
+async def test_sync_ram_block_boundary_addr(dut, width, depth):
+    """Test write/read at last valid address."""
+    last_addr = depth - 1
+    dut.wr_en_i.value = 1
+    dut.rd_en_i.value = 0
+    dut.wr_addr_i.value = last_addr
+    dut.data_i.value = (1 << width) - 1
+    await FallingEdge(dut.clk_i)
+    await Timer(1, "step")
+    dut.wr_en_i.value = 0
+    dut.rd_en_i.value = 1
+    dut.rd_addr_i.value = last_addr
+    await FallingEdge(dut.clk_i)
+    await Timer(1, "step")
+    await FallingEdge(dut.clk_i)
+    await Timer(1, "step")
+    assert int(dut.data_o.value) == (1 << width) - 1, f"Boundary read mismatch: got={int(dut.data_o.value)}"
+
+async def test_sync_ram_block_same_cycle_rd_wr(dut, width, depth):
+    """Test same-cycle read and write to the same address (read returns old data)."""
+    addr = 0
+    old_val = 7
+    new_val = 13
+
+    # preload old value
+    dut.wr_en_i.value = 1
+    dut.rd_en_i.value = 0
+    dut.wr_addr_i.value = addr
+    dut.data_i.value = old_val
+    await FallingEdge(dut.clk_i)
+    await Timer(1, "step")
+
+    # simultaneous rd/wr, expect old data on read
+    dut.wr_en_i.value = 1
+    dut.rd_en_i.value = 1
+    dut.wr_addr_i.value = addr
+    dut.rd_addr_i.value = addr
+    dut.data_i.value = new_val
+    await FallingEdge(dut.clk_i)
+    await Timer(1, "step")
+    assert int(dut.data_o.value) == old_val, f"Simultaneous rd/wr should return old data, got {int(dut.data_o.value)}"
+
+    # confirm new data visible next read
+    dut.wr_en_i.value = 0
+    dut.rd_en_i.value = 1
+    await FallingEdge(dut.clk_i)
+    await Timer(1, "step")
+    assert int(dut.data_o.value) == new_val, f"Updated data not visible: got {int(dut.data_o.value)}"
+
 async def test_sync_ram_block_write_read_multi_random(dut, width, depth):
     """Test multiple random write and read behavior of sync RAM block."""
     random_stream = [random.randint(0, 2**width - 1) for _ in range(depth)]
@@ -124,6 +175,12 @@ async def run_sync_ram_block_tests(dut):
 
     await test_sync_ram_block_write_read_multi_separate(dut, width, depth)
     print("Multiple write/read test passed")
+
+    await test_sync_ram_block_boundary_addr(dut, width, depth)
+    print("Boundary address test passed")
+
+    await test_sync_ram_block_same_cycle_rd_wr(dut, width, depth)
+    print("Same-cycle rd/wr test passed")
 
     await test_sync_ram_block_write_read_multi_random(dut, width, depth)
     print("Random write/read test passed")

@@ -1,3 +1,5 @@
+"""Coverage: reset and sample on both clock edges for posedge DFF."""
+
 import cocotb
 from cocotb.clock import Clock
 from cocotb.triggers import RisingEdge, FallingEdge, Timer

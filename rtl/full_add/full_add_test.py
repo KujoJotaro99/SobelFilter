@@ -1,4 +1,4 @@
-import random
+"""Coverage: truth table over 1-bit inputs (a, b, cin)."""
 
 import cocotb
 from cocotb.clock import Clock
@@ -10,24 +10,6 @@ def get_params(dut):
     """Set parameters in Python from DUT"""
     return {"WIDTH": len(dut.a_i)}
 
-# async def counter_clock_test(dut):
-#     """Start clock sequence"""
-#     cocotb.start_soon(Clock(dut.clk_i, CLK_PERIOD_NS, units="ns").start())
-#     await Timer(5 * CLK_PERIOD_NS, units="ns")
-
-async def full_add_test(dut, width):
-    """Test behavior of full_add."""
-    a_val = random.randint(0, (1 << width) - 1)
-    b_val = random.randint(0, (1 << width) - 1)
-    c_val = random.randint(0, 1)
-    dut.a_i.value = a_val
-    dut.b_i.value = b_val
-    dut.cin_i.value = c_val
-    await Timer(1, "step")
-    expected_sum = a_val ^ b_val ^ c_val
-    expected_carry = ((a_val ^ b_val) & c_val) | (a_val & b_val)
-    assert dut.sum_o.value == expected_sum, f"SUM mismatch: a={a_val}, b={b_val}, got={int(dut.sum_o)}, expected={expected_sum}"
-    assert dut.carry_o.value == expected_carry, f"CARRY mismatch: a={a_val}, b={b_val}, got={int(dut.carry_o)}, expected={expected_carry}"
 
 @cocotb.test(skip=False)
 async def run_full_add_tests(dut):
@@ -35,6 +17,15 @@ async def run_full_add_tests(dut):
 
     params = get_params(dut)
     width = params["WIDTH"]
-    for _ in range(10):
-        await full_add_test(dut, width)
-    print("Half add test passed")
+    for a_val in (0, 1):
+        for b_val in (0, 1):
+            for c_val in (0, 1):
+                dut.a_i.value = a_val
+                dut.b_i.value = b_val
+                dut.cin_i.value = c_val
+                await Timer(1, "step")
+                expected_sum = a_val ^ b_val ^ c_val
+                expected_carry = ((a_val ^ b_val) & c_val) | (a_val & b_val)
+                assert dut.sum_o.value == expected_sum, f"SUM mismatch: a={a_val}, b={b_val}, got={int(dut.sum_o)}, expected={expected_sum}"
+                assert dut.carry_o.value == expected_carry, f"CARRY mismatch: a={a_val}, b={b_val}, got={int(dut.carry_o)}, expected={expected_carry}"
+    print("Full add truth table passed")

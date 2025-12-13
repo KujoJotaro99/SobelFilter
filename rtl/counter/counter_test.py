@@ -1,3 +1,5 @@
+"""Coverage: reset (sync/async), up/down/hold/load, enable gating, wrap behavior."""
+
 import cocotb
 from cocotb.clock import Clock
 from cocotb.triggers import RisingEdge, FallingEdge, Timer
