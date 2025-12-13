@@ -12,12 +12,12 @@ module counter #(
     input logic down_i,
     input logic load_i,
     input logic en_i,
-    output logic [WIDTH_P:0] count_o
+    output logic [WIDTH_P-1:0] count_o
 );
 
-    logic [WIDTH_P:0] count_l;
-    logic [WIDTH_P:0] count_w;
-    logic [WIDTH_P:0] toggle_w;
+    logic [WIDTH_P-1:0] count_l;
+    logic [WIDTH_P-1:0] count_w;
+    logic [WIDTH_P-1:0] toggle_w;
 
     // toggle flip counter
     // for sequential counting bit 0 toggles every tick
@@ -38,8 +38,6 @@ module counter #(
             assign toggle_w[j] = up_i ? (toggle_w[j-1] & count_l[j-1]) : down_i ? (toggle_w[j-1] & ~count_l[j-1]) : 1'b0;
         end
     endgenerate
-
-    assign count_w[WIDTH_P] = load_i ? 1'b0 : toggle_w[WIDTH_P] ? ~count_l[WIDTH_P] : count_l[WIDTH_P];
 
     always_ff @(posedge clk_i) begin
         if (!rstn_i) begin
