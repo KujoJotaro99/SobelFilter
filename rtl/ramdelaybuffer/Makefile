@@ -11,8 +11,8 @@ VERILOG_SOURCES := $(RTL_SOURCES)
 
 TOPLEVEL := $(shell python3 -c "import json; \
     print(json.load(open('$(FILELIST_JSON)'))['top'])")
-	
-MODULE := full_add_test
+
+MODULE := ramdelaybuffer_test
 
 COCOTB_LOG_LEVEL ?= INFO
 
@@ -29,7 +29,13 @@ clean::
 .PHONY: sweep
 
 sweep:
-	$(MAKE)
+	$(MAKE) WIDTH_P=8  DELAY_P=4
+	$(MAKE) WIDTH_P=8  DELAY_P=8
+	$(MAKE) WIDTH_P=16 DELAY_P=8
+
+print-root:
+	@echo "REPO_ROOT=$(REPO_ROOT)"
+	@echo "PWD=$(PWD)"
 
 lint:
 	verilator --lint-only $(RTL_SOURCES) --top-module $(TOPLEVEL)

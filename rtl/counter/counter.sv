@@ -1,0 +1,54 @@
+`timescale 1ns/1ps
+
+module counter #(
+    parameter int WIDTH_P = 32,
+    parameter int MAX_VAL_P = 128,
+    parameter bit SATURATE_P = 0
+) (
+    input logic clk_i,
+    input logic rstn_i,
+    input logic [WIDTH_P-1:0] data_i,
+    input logic up_i,
+    input logic down_i,
+    input logic load_i,
+    input logic en_i,
+    output logic [WIDTH_P:0] count_o
+);
+
+    logic [WIDTH_P:0] count_l;
+    logic [WIDTH_P:0] count_w;
+    logic [WIDTH_P:0] toggle_w;
+
+    // toggle flip counter
+    // for sequential counting bit 0 toggles every tick
+    assign toggle_w[0] = up_i ^ down_i;
+
+    genvar i;
+    generate
+        for (i = 0; i < WIDTH_P; i++) begin : gen_carry
+            // if carry of wire is high, then toggle
+            assign count_w[i] = load_i ? data_i[i] : toggle_w[i] ? ~count_l[i] : count_l[i];
+        end
+    endgenerate
+
+    genvar j;
+    generate
+        for (j = 1; j < WIDTH_P; j++) begin : gen_count
+            // toggle only if all lower bits are high
+            assign toggle_w[j] = up_i ? (toggle_w[j-1] & count_l[j-1]) : down_i ? (toggle_w[j-1] & ~count_l[j-1]) : 1'b0;
+        end
+    endgenerate
+
+    assign count_w[WIDTH_P] = load_i ? 1'b0 : toggle_w[WIDTH_P] ? ~count_l[WIDTH_P] : count_l[WIDTH_P];
+
+    always_ff @(posedge clk_i) begin
+        if (!rstn_i) begin
+            count_l <= '0;
+        end else if (en_i) begin
+            count_l <= count_w;
+        end
+    end
+
+    assign count_o = count_l;
+
+endmodule

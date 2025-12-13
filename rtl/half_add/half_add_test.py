@@ -6,10 +6,19 @@ from cocotb.triggers import RisingEdge, FallingEdge, Timer
 
 CLK_PERIOD_NS = 10
 
-async def half_add_test(dut):
+def get_params(dut):
+    """Set parameters in Python from DUT"""
+    return {"WIDTH": len(dut.a_i)}
+
+# async def counter_clock_test(dut):
+#     """Start clock sequence"""
+#     cocotb.start_soon(Clock(dut.clk_i, CLK_PERIOD_NS, units="ns").start())
+#     await Timer(5 * CLK_PERIOD_NS, units="ns")
+
+async def half_add_test(dut, width):
     """Test behavior of half_add."""
-    a_val = random.randint(0, 1)
-    b_val = random.randint(0, 1)
+    a_val = random.randint(0, (1 << width) - 1)
+    b_val = random.randint(0, (1 << width) - 1)
     dut.a_i.value = a_val
     dut.b_i.value = b_val
     await Timer(1, "step")
@@ -23,6 +32,8 @@ async def half_add_test(dut):
 async def run_half_add_tests(dut):
     """Run all half_add tests."""
 
+    params = get_params(dut)
+    width = params["WIDTH"]
     for _ in range(10):
-        await half_add_test(dut)
+        await half_add_test(dut, width)
     print("Half add test passed")

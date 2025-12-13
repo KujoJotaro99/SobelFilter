@@ -11,8 +11,8 @@ VERILOG_SOURCES := $(RTL_SOURCES)
 
 TOPLEVEL := $(shell python3 -c "import json; \
     print(json.load(open('$(FILELIST_JSON)'))['top'])")
-	
-MODULE := full_add_test
+
+MODULE := counter_test
 
 COCOTB_LOG_LEVEL ?= INFO
 
@@ -23,13 +23,18 @@ WAVES ?= 1
 include $(shell cocotb-config --makefile)/Makefile.sim
 
 .PHONY: clean
+
 clean::
 	rm -rf sim_build __pycache__ .pytest_cache *.pyc *.vcd *.fst results.xml
 
 .PHONY: sweep
 
 sweep:
-	$(MAKE)
+	$(MAKE) WIDTH_P=8  MAX_VAL_P=15 SATURATE_P=0
+	$(MAKE) WIDTH_P=8  MAX_VAL_P=15 SATURATE_P=1
+	$(MAKE) WIDTH_P=16 MAX_VAL_P=255 SATURATE_P=0
+	$(MAKE) WIDTH_P=16 MAX_VAL_P=255 SATURATE_P=1
 
 lint:
 	verilator --lint-only $(RTL_SOURCES) --top-module $(TOPLEVEL)
+

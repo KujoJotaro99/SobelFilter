@@ -5,10 +5,15 @@ from cocotb.clock import Clock
 from cocotb.triggers import RisingEdge, FallingEdge, Timer
 
 CLK_PERIOD_NS = 10
-WIDTH_P = 8
-DEPTH_P = 128
 
-async def test_sync_ram_block_reset(dut):
+def get_params(dut):
+    """Set parameters in Python from DUT"""
+    return {
+        "WIDTH_P": int(dut.WIDTH_P.value),
+        "DEPTH_P": int(dut.DEPTH_P.value),
+    }
+
+async def test_sync_ram_block_reset(dut, width, depth):
     """Test reset behavior of sync RAM block."""
     dut.rstn_i.value = 1
     dut.wr_en_i.value = 0
@@ -20,7 +25,7 @@ async def test_sync_ram_block_reset(dut):
     await Timer(1, "step")
     assert dut.data_o.value == 0, f"Reset failed: data_o={dut.data_o.value}"
 
-async def test_sync_ram_block_write_read_single(dut):
+async def test_sync_ram_block_write_read_single(dut, width, depth):
     """Test single write and read behavior of sync RAM block."""
     dut.rstn_i.value = 1
     dut.wr_en_i.value = 1
@@ -38,9 +43,9 @@ async def test_sync_ram_block_write_read_single(dut):
     await Timer(1, "step")
     assert int(dut.data_o.value) == 42, f"Read data mismatch: got={int(dut.data_o.value)}, expected=42"
 
-async def test_sync_ram_block_write_read_multi_separate(dut):
+async def test_sync_ram_block_write_read_multi_separate(dut, width, depth):
     """Test multiple write and read behavior of sync RAM block."""
-    random_stream = [random.randint(0, 2**WIDTH_P - 1) for _ in range(10)]
+    random_stream = [random.randint(0, 2**width - 1) for _ in range(min(10, depth))]
     for i, val in enumerate(random_stream):
         dut.rstn_i.value = 1
         dut.wr_en_i.value = 1
@@ -60,9 +65,9 @@ async def test_sync_ram_block_write_read_multi_separate(dut):
         await Timer(1, "step")
         assert int(dut.data_o.value) == val, f"Read data mismatch at addr {i}: got={int(dut.data_o.value)}, expected={val}"
 
-async def test_sync_ram_block_write_read_multi_random(dut):
+async def test_sync_ram_block_write_read_multi_random(dut, width, depth):
     """Test multiple random write and read behavior of sync RAM block."""
-    random_stream = [random.randint(0, 2**WIDTH_P - 1) for _ in range(128)]
+    random_stream = [random.randint(0, 2**width - 1) for _ in range(depth)]
     addr_queue = []
     wr_addr = 0
     rd_addr = 0
@@ -74,18 +79,18 @@ async def test_sync_ram_block_write_read_multi_random(dut):
     await FallingEdge(dut.clk_i)
 
     for _ in range(50):
-        dut.wr_en_i.value = random.randint(0,1)
-        dut.rd_en_i.value = random.randint(0,1) if (rd_addr < wr_addr) else 0
+        dut.wr_en_i.value = random.randint(0,1) if random_stream else 0
+        dut.rd_en_i.value = random.randint(0,1) if addr_queue else 0
 
         if dut.wr_en_i.value:
-            val = random_stream.pop() if random_stream else random.randint(0, 2**WIDTH_P - 1)
+            val = random_stream.pop() if random_stream else random.randint(0, 2**width - 1)
             dut.data_i.value = val
             addr_queue.append((wr_addr, val))
 
         await FallingEdge(dut.clk_i)
 
         if dut.wr_en_i.value:
-            wr_addr += 1
+            wr_addr = (wr_addr + 1) % depth
             dut.wr_addr_i.value = wr_addr
 
         if dut.rd_en_i.value:
@@ -97,7 +102,8 @@ async def test_sync_ram_block_write_read_multi_random(dut):
         await FallingEdge(dut.clk_i)
 
         if dut.rd_en_i.value:
-            rd_addr += 1
+            addr_queue = [entry for entry in addr_queue if entry[0] != rd_addr]
+            rd_addr = (rd_addr + 1) % depth
             dut.rd_addr_i.value = rd_addr
 
 
@@ -106,14 +112,18 @@ async def run_sync_ram_block_tests(dut):
     """Run all sync ram block tests."""
     cocotb.start_soon(Clock(dut.clk_i, CLK_PERIOD_NS, units="ns").start())
 
-    await test_sync_ram_block_reset(dut)
+    params = get_params(dut)
+    width = params["WIDTH_P"]
+    depth = params["DEPTH_P"]
+
+    await test_sync_ram_block_reset(dut, width, depth)
     print("Reset test passed")
 
-    await test_sync_ram_block_write_read_single(dut)
+    await test_sync_ram_block_write_read_single(dut, width, depth)
     print("Single write/read test passed")
 
-    await test_sync_ram_block_write_read_multi_separate(dut)
+    await test_sync_ram_block_write_read_multi_separate(dut, width, depth)
     print("Multiple write/read test passed")
 
-    await test_sync_ram_block_write_read_multi_random(dut)
+    await test_sync_ram_block_write_read_multi_random(dut, width, depth)
     print("Random write/read test passed")

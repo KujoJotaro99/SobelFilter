@@ -26,5 +26,12 @@ include $(shell cocotb-config --makefile)/Makefile.sim
 clean::
 	rm -rf sim_build __pycache__ .pytest_cache *.pyc *.vcd *.fst results.xml
 
+.PHONY: sweep
+
+sweep:
+	$(MAKE) WIDTH_P=8
+	$(MAKE) WIDTH_P=16
+	$(MAKE) WIDTH_P=32
+
 lint:
 	verilator --lint-only $(RTL_SOURCES) --top-module $(TOPLEVEL)
