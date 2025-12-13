@@ -12,7 +12,7 @@ module shift #(
 
     always_comb begin
         shift_o = data_i;
-        unique case (op_i)
+        case (op_i)
             2'b00: shift_o = data_i << shamt_i; //SLL
             2'b01: shift_o = data_i >> shamt_i; //SLR
             2'b10: shift_o = $signed(data_i) >>> shamt_i; // sra/srai via manual sign-extend

@@ -20,11 +20,17 @@ COMPILE_ARGS += -g2012
 
 WAVES ?= 1
 
+TB_SV := add_tb.sv
+
+ifneq ($(filter sv,$(MAKECMDGOALS)),)
+    # skip cocotb include for pure SystemVerilog run
+else
 include $(shell cocotb-config --makefile)/Makefile.sim
+endif
 
 .PHONY: clean
 clean::
-	rm -rf sim_build __pycache__ .pytest_cache *.pyc *.vcd *.fst results.xml
+	rm -rf sim_build __pycache__ .pytest_cache *.pyc *.vcd *.fst results.xml sim_sv
 
 .PHONY: sweep
 
@@ -35,3 +41,13 @@ sweep:
 
 lint:
 	verilator --lint-only $(RTL_SOURCES) --top-module $(TOPLEVEL)
+
+.PHONY: python
+python: SIM=icarus
+python: clean
+	$(MAKE) MODULE=$(MODULE)
+
+.PHONY: sv
+sv: clean
+	iverilog $(COMPILE_ARGS) -s add_tb -o sim_sv $(VERILOG_SOURCES) $(TB_SV)
+	vvp sim_sv

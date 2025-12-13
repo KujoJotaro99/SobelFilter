@@ -21,25 +21,27 @@ module sync_ram_block #(
         if (filename_p != "") begin
             $readmemb(filename_p, mem_array);
         end
-        $display("%m: depth_p is %d, width_p is %d", DEPTH_P, WIDTH_P);
         for (int i = 0; i < DEPTH_P; i++) begin
             $dumpvars(0,mem_array[i]);
         end
+        $display("%m: depth_p is %d, width_p is %d", DEPTH_P, WIDTH_P);
     end
 
     always_ff @(posedge clk_i) begin
         if (!rstn_i) begin
             data_o <= '0;
-        end else begin
-            if (wr_en_i) begin
-                mem_array[wr_addr_i] <= data_i;
+            for (int i = 0; i < DEPTH_P; i++) begin
+                //
             end
+        end else begin
+            // read priority
             if (rd_en_i) begin
                 data_o <= mem_array[rd_addr_i];
+            end
+            if (wr_en_i) begin
+                mem_array[wr_addr_i] <= data_i;
             end
         end
     end
 
 endmodule
-
-
