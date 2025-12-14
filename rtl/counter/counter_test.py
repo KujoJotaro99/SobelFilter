@@ -2,7 +2,7 @@
 
 import cocotb
 from cocotb.clock import Clock
-from cocotb.triggers import RisingEdge, FallingEdge, Timer
+from cocotb.triggers import FallingEdge, FallingEdge, Timer
 
 CLK_PERIOD_NS = 10
 
@@ -27,11 +27,11 @@ async def init_dut(dut):
     dut.up_i.value = 0
     dut.down_i.value = 0
     dut.data_i.value = 0
-    await RisingEdge(dut.clk_i)
-    await Timer(1, units="ns")
+    await FallingEdge(dut.clk_i)
+    
     dut.rstn_i.value = 1
-    await RisingEdge(dut.clk_i)
-    await Timer(1, units="ns")
+    await FallingEdge(dut.clk_i)
+    
 
 async def counter_reset_sync_test(dut):
     """Reset sync test"""
@@ -44,15 +44,15 @@ async def counter_reset_sync_test(dut):
     dut.up_i.value = 0
     dut.down_i.value = 0
     dut.data_i.value = preload
-    await RisingEdge(dut.clk_i)
-    await Timer(1, units="ns")
+    await FallingEdge(dut.clk_i)
+    
     pre_reset_val = int(dut.count_o.value) & ((1 << width) - 1)
     assert pre_reset_val == preload, f"Preload failed expected {preload} got {pre_reset_val}"
 
     dut.rstn_i.value = 0
     dut.load_i.value = 0
-    await RisingEdge(dut.clk_i)
-    await Timer(1, units="ns")
+    await FallingEdge(dut.clk_i)
+    
     cleared = int(dut.count_o.value) & ((1 << width) - 1)
     assert cleared == 0, f"Sync reset failed to clear from {pre_reset_val}, got {cleared}"
     dut.rstn_i.value = 1
@@ -68,15 +68,15 @@ async def counter_reset_async_test(dut):
     dut.up_i.value = 0
     dut.down_i.value = 0
     dut.data_i.value = preload
-    await RisingEdge(dut.clk_i)
-    await Timer(1, units="ns")
+    await FallingEdge(dut.clk_i)
+    
     pre_reset_val = int(dut.count_o.value) & ((1 << width) - 1)
     assert pre_reset_val == preload, f"Preload failed expected {preload} got {pre_reset_val}"
 
     await Timer(CLK_PERIOD_NS // 2, units="ns")
     dut.rstn_i.value = 0
-    await RisingEdge(dut.clk_i)
-    await Timer(1, units="ns")
+    await FallingEdge(dut.clk_i)
+    
     cleared = int(dut.count_o.value) & ((1 << width) - 1)
     assert cleared == 0, f"Async reset failed to clear from {pre_reset_val}, got {cleared}"
     dut.rstn_i.value = 1
@@ -90,12 +90,12 @@ async def counter_up_test(dut):
     dut.up_i.value = 1
     dut.down_i.value = 0
     dut.data_i.value = 0
-    await RisingEdge(dut.clk_i)
-    await Timer(1, units="ns")
+    await FallingEdge(dut.clk_i)
+    
     dut.load_i.value = 0
     pre_increment = int(dut.count_o.value) & ((1 << width) - 1)
-    await RisingEdge(dut.clk_i)
-    await Timer(1, units="ns")
+    await FallingEdge(dut.clk_i)
+    
     got = int(dut.count_o.value) & ((1 << width) - 1)
     assert got == (pre_increment + 1) & ((1 << width) - 1), f"Increment failed expected {pre_increment + 1} got {got}"
 
@@ -107,12 +107,12 @@ async def counter_down_test(dut):
     dut.up_i.value = 0
     dut.down_i.value = 1
     dut.data_i.value = 3
-    await RisingEdge(dut.clk_i)
-    await Timer(1, units="ns")
+    await FallingEdge(dut.clk_i)
+    
     dut.load_i.value = 0
     pre_decrement = int(dut.count_o.value) & ((1 << width) - 1)
-    await RisingEdge(dut.clk_i)
-    await Timer(1, units="ns")
+    await FallingEdge(dut.clk_i)
+    
     got = int(dut.count_o.value) & ((1 << width) - 1)
     assert got == (pre_decrement - 1) & ((1 << width) - 1), f"Decrement failed expected {pre_decrement - 1} got {got}"
 
@@ -124,12 +124,12 @@ async def counter_up_down_test(dut):
     dut.up_i.value = 1
     dut.down_i.value = 1
     dut.data_i.value = 0
-    await RisingEdge(dut.clk_i)
-    await Timer(1, units="ns")
+    await FallingEdge(dut.clk_i)
+    
     dut.load_i.value = 0
     pre_increment = int(dut.count_o.value) & ((1 << width) - 1)
-    await RisingEdge(dut.clk_i)
-    await Timer(1, units="ns")
+    await FallingEdge(dut.clk_i)
+    
     got = int(dut.count_o.value) & ((1 << width) - 1)
     assert got == pre_increment, f"Simultaneous up/down should hold: expected {pre_increment} got {got}"
 
@@ -141,12 +141,12 @@ async def counter_none_test(dut):
     dut.up_i.value = 0
     dut.down_i.value = 0
     dut.data_i.value = 0
-    await RisingEdge(dut.clk_i)
-    await Timer(1, units="ns")
+    await FallingEdge(dut.clk_i)
+    
     dut.load_i.value = 0
     pre_increment = int(dut.count_o.value) & ((1 << width) - 1)
-    await RisingEdge(dut.clk_i)
-    await Timer(1, units="ns")
+    await FallingEdge(dut.clk_i)
+    
     got = int(dut.count_o.value) & ((1 << width) - 1)
     assert got == pre_increment, f"No-op count mismatch expected {pre_increment} got {got}"
 
@@ -159,8 +159,8 @@ async def counter_load_test(dut):
     dut.up_i.value = 0
     dut.down_i.value = 0
     dut.data_i.value = load_val
-    await RisingEdge(dut.clk_i)
-    await Timer(1, units="ns")
+    await FallingEdge(dut.clk_i)
+    
     got = int(dut.count_o.value) & ((1 << width) - 1)
     assert got == load_val, f"Load failed expected {load_val} got {got}"
     dut.load_i.value = 0
@@ -174,11 +174,11 @@ async def counter_saturate_test(dut):
     dut.up_i.value = 1
     dut.down_i.value = 0
     dut.data_i.value = max_val
-    await RisingEdge(dut.clk_i)
-    await Timer(1, units="ns")
+    await FallingEdge(dut.clk_i)
+    
     dut.load_i.value = 0
-    await RisingEdge(dut.clk_i)
-    await Timer(1, units="ns")
+    await FallingEdge(dut.clk_i)
+    
     wrapped = int(dut.count_o.value) & ((1 << width) - 1)
     assert wrapped == 0, f"Wrap from max expected 0 got {wrapped}"
 
@@ -190,19 +190,19 @@ async def counter_enable_test(dut):
     dut.up_i.value = 1
     dut.down_i.value = 0
     dut.data_i.value = 5 & ((1 << width) - 1)
-    await RisingEdge(dut.clk_i)
-    await Timer(1, units="ns")
+    await FallingEdge(dut.clk_i)
+    
     dut.load_i.value = 0
     held = int(dut.count_o.value) & ((1 << width) - 1)
 
-    await RisingEdge(dut.clk_i)
-    await Timer(1, units="ns")
+    await FallingEdge(dut.clk_i)
+    
     got = int(dut.count_o.value) & ((1 << width) - 1)
     assert got == held, f"Enable low should hold count expected {held} got {got}"
 
     dut.en_i.value = 1
-    await RisingEdge(dut.clk_i)
-    await Timer(1, units="ns")
+    await FallingEdge(dut.clk_i)
+    
     expected = (held + 1) & ((1 << width) - 1)
     got = int(dut.count_o.value) & ((1 << width) - 1)
     assert got == expected, f"Enable high should increment expected {expected} got {got}"

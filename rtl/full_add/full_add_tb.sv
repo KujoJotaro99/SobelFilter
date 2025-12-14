@@ -5,8 +5,8 @@ module full_add_tb;
     logic a_i;
     logic b_i;
     logic cin_i;
-    wire  sum_o;
-    wire  carry_o;
+    wire sum_o;
+    wire carry_o;
 
     full_add dut (
         .a_i(a_i),
@@ -20,11 +20,11 @@ module full_add_tb;
         logic exp_sum;
         logic exp_carry;
         begin
-            a_i   = a;
-            b_i   = b;
+            a_i = a;
+            b_i = b;
             cin_i = cin;
             #1;
-            exp_sum   = a ^ b ^ cin;
+            exp_sum = a ^ b ^ cin;
             exp_carry = ((a ^ b) & cin) | (a & b);
             if (sum_o !== exp_sum || carry_o !== exp_carry) begin
                 $fatal(1,

@@ -1,32 +1,78 @@
 `timescale 1ns/1ps
 
 module ramdelaybuffer #(
-    parameter WIDTH_P = 8, 
+    parameter WIDTH_P = 8,
     parameter DELAY_P = 8
 ) (
-    input logic [0:0] clk_i,
-    input logic [0:0] rstn_i,
+    input logic clk_i,
+    input logic rstn_i,
+    input logic valid_i,
+    input logic ready_i,
+    output logic valid_o,
+    output logic ready_o,
     input logic [WIDTH_P-1:0] data_i,
-    output logic [WIDTH_P-1:0] data_o,
+    output logic [WIDTH_P-1:0] data_o
 );
 
-    // counter
-    logic [$clog2(depth_p)-1:0] wr_addr_i;
-    logic [$clog2(depth_p)-1:0] rd_addr_i;
+    logic [$clog2(DELAY_P)-1:0] wr_addr;
+    logic [$clog2(DELAY_P)-1:0] rd_addr;
+    logic [WIDTH_P-1:0] ram_data_l;
 
-    // synchronous memory buffer
+    counter #(
+        .WIDTH_P($clog2(DELAY_P)),
+        .MAX_VAL_P(DELAY_P-1),
+        .SATURATE_P(0)
+    ) wr_ptr_counter (
+        .clk_i(clk_i),
+        .rstn_i(rstn_i),
+        .data_i('0),
+        .up_i(valid_i & ready_o),
+        .down_i(1'b0),
+        .load_i(wr_addr == MAX_VAL_P[$clog2(DELAY_P)-1:0]),
+        .en_i(1'b1),
+        .count_o(wr_addr)
+    );
+
+    counter #(
+        .WIDTH_P($clog2(DELAY_P)),
+        .MAX_VAL_P(DELAY_P-1),
+        .SATURATE_P(0)
+    ) rd_ptr_counter (
+        .clk_i(clk_i),
+        .rstn_i(rstn_i),
+        .data_i('0),
+        .up_i(valid_i & ready_o),
+        .down_i(1'b0),
+        .load_i(rd_addr == MAX_VAL_P[$clog2(DELAY_P)-1:0]),
+        .en_i(1'b1),
+        .count_o(rd_addr)
+    );
+
     sync_ram_block #(
         .WIDTH_P(WIDTH_P),
-        .DELAY_P(DELAY_P)
+        .DEPTH_P(DELAY_P)
     ) sync_ram_delay (
-        .clk_i(),
-        .rstn_i(),
-        .data_i(),
-        .wr_addr_i(),
-        .rd_addr_i(),
-        .wr_en_i(),
-        .rd_en_i(),
-        .data_o()
+        .clk_i(clk_i),
+        .rstn_i(rstn_i),
+        .data_i(data_i),
+        .wr_addr_i(wr_addr),
+        .rd_addr_i(rd_addr),
+        .wr_en_i(valid_i & ready_o), // buffer moves together
+        .rd_en_i(valid_i & ready_o),
+        .data_o(ram_data_l)
+    );
+
+    elastic #(
+        .WIDTH_P(WIDTH_P)
+    ) stream_pipe (
+        .clk_i(clk_i),
+        .rstn_i(rstn_i),
+        .data_i(ram_data_l),
+        .valid_i(valid_i),
+        .ready_o(ready_o),
+        .valid_o(valid_o),
+        .data_o(data_o),
+        .ready_i(ready_i)
     );
 
 endmodule

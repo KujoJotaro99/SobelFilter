@@ -18,9 +18,7 @@ module add_tb;
         .carry_o(carry_o)
     );
 
-    task automatic check(input logic [WIDTH_P-1:0] a,
-                         input logic [WIDTH_P-1:0] b,
-                         input logic cin);
+    task automatic check(input logic [WIDTH_P-1:0] a, input logic [WIDTH_P-1:0] b, input logic cin);
         logic [WIDTH_P:0] total;
         begin
             a_i = a;
@@ -36,14 +34,14 @@ module add_tb;
     endtask
 
     initial begin
-        // Edge cases
+        // edge cases
         check('0, '0, 0);
         check({WIDTH_P{1'b1}}, '0, 0);
         check({WIDTH_P{1'b1}}, 1, 0);
         check(1 << (WIDTH_P-1), 1 << (WIDTH_P-1), 0);
         check(32'hAAAAAAAA[WIDTH_P-1:0], 32'h55555555[WIDTH_P-1:0], 1);
 
-        // Randomized cases
+        // randomized cases
         repeat (100) begin
             check($urandom, $urandom, $urandom_range(0,1));
         end

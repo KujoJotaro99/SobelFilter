@@ -39,13 +39,33 @@ module counter #(
         end
     endgenerate
 
-    always_ff @(posedge clk_i) begin
-        if (!rstn_i) begin
-            count_l <= '0;
-        end else if (en_i) begin
-            count_l <= count_w;
+    generate
+        if (SATURATE_P) begin : sat_gen
+            always_ff @(posedge clk_i) begin
+                if (!rstn_i) begin
+                    count_l <= '0;
+                end else if (en_i) begin
+                    if (load_i) begin
+                        count_l <= (data_i > MAX_VAL_P[WIDTH_P-1:0]) ? MAX_VAL_P[WIDTH_P-1:0] : data_i;
+                    end else if (up_i && !down_i) begin
+                        if (count_l != MAX_VAL_P[WIDTH_P-1:0])
+                            count_l <= count_w;
+                    end else if (down_i && !up_i) begin
+                        if (count_l != '0)
+                            count_l <= count_w;
+                    end
+                end
+            end
+        end else begin : roll_gen
+            always_ff @(posedge clk_i) begin
+                if (!rstn_i) begin
+                    count_l <= '0;
+                end else if (en_i) begin
+                    count_l <= count_w;
+                end
+            end
         end
-    end
+    endgenerate
 
     assign count_o = count_l;
 
