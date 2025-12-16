@@ -2,7 +2,7 @@
 
 module ramdelaybuffer #(
     parameter WIDTH_P = 8,
-    parameter DELAY_P = 8
+    parameter DELAY_P = 12
 ) (
     input logic clk_i,
     input logic rstn_i,

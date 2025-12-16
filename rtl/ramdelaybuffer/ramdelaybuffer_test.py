@@ -1,6 +1,5 @@
-"""Test headers for ramdelaybuffer; fill in implementations."""
+"""coverage reset hold, expected delay, pointer wraparound, valid deasserts"""
 import random
-import sys
 
 import cocotb
 from cocotb.clock import Clock
