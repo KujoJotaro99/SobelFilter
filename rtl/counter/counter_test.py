@@ -1,4 +1,4 @@
-"""Coverage: reset (sync/async), up/down/hold/load, enable gating, wrap behavior."""
+"""Coverage: reset (sync/async), up/down/updown/none/load, enable gating, wrap/saturation(tbd) behavior."""
 
 import cocotb
 from cocotb.clock import Clock
