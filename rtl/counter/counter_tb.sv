@@ -8,6 +8,7 @@ module counter_tb;
 
     logic clk_i;
     logic rstn_i;
+    logic [WIDTH_P-1:0] rstn_data_i;
     logic [WIDTH_P-1:0] data_i;
     logic up_i;
     logic down_i;
@@ -22,6 +23,7 @@ module counter_tb;
     ) dut (
         .clk_i(clk_i),
         .rstn_i(rstn_i),
+        .rstn_data_i(rstn_data_i),
         .data_i(data_i),
         .up_i(up_i),
         .down_i(down_i),
@@ -36,6 +38,7 @@ module counter_tb;
     task automatic reset_dut;
         begin
             rstn_i = 0;
+            rstn_data_i = '0;
             en_i = 1;
             load_i = 0;
             up_i = 0;
@@ -110,6 +113,7 @@ module counter_tb;
         $dumpfile("dump.vcd");
         $dumpvars();
         reset_dut();
+        rstn_data_i = '0;
         check_load(42);
         check_load(MAX_VAL_P + 10);
         check_increment();

@@ -1,5 +1,5 @@
 /*
-    elastic.sv: elastic pipeline module imported from CSE 225 curriculum UCSC
+  elastic.sv: elastic pipeline module imported from CSE 225 curriculum UCSC
 */
 
 `timescale 1ns/1ps
@@ -16,7 +16,7 @@ module elastic #(
 
     output [0:0] valid_o,
     output [WIDTH_P - 1:0] data_o, 
-    input [0:0] ready_i,
+    input [0:0] ready_i
 );
 
   logic [WIDTH_P - 1:0] data_o_reg;

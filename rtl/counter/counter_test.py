@@ -22,6 +22,7 @@ async def counter_clock_test(dut):
 async def init_dut(dut):
     """Drive known reset/default values to clear Xs before testing."""
     dut.rstn_i.value = 0
+    dut.rstn_data_i.value = 0
     dut.en_i.value = 0
     dut.load_i.value = 0
     dut.up_i.value = 0

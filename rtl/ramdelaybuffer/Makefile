@@ -11,7 +11,7 @@ VERILOG_SOURCES := $(RTL_SOURCES)
 
 TOPLEVEL := $(shell python3 -c "import json; \
     print(json.load(open('$(FILELIST_JSON)'))['top'])")
-
+	
 MODULE := ramdelaybuffer_test
 
 COCOTB_LOG_LEVEL ?= INFO
@@ -20,22 +20,34 @@ COMPILE_ARGS += -g2012
 
 WAVES ?= 1
 
+TB_SV := ramdelaybuffer_tb.sv
+
+ifneq ($(filter sv,$(MAKECMDGOALS)),)
+    # skip cocotb include for pure SystemVerilog run
+else
 include $(shell cocotb-config --makefile)/Makefile.sim
+endif
 
 .PHONY: clean
 clean::
-	rm -rf sim_build __pycache__ .pytest_cache *.pyc *.vcd *.fst results.xml
+	rm -rf sim_build __pycache__ .pytest_cache *.pyc *.vcd *.fst results.xml sim_sv
 
 .PHONY: sweep
 
 sweep:
-	$(MAKE) WIDTH_P=8  DELAY_P=4
-	$(MAKE) WIDTH_P=8  DELAY_P=8
-	$(MAKE) WIDTH_P=16 DELAY_P=8
-
-print-root:
-	@echo "REPO_ROOT=$(REPO_ROOT)"
-	@echo "PWD=$(PWD)"
+	$(MAKE) WIDTH_P=8
+	$(MAKE) WIDTH_P=16
+	$(MAKE) WIDTH_P=32
 
 lint:
 	verilator --lint-only $(RTL_SOURCES) --top-module $(TOPLEVEL)
+
+.PHONY: python
+python: SIM=icarus
+python: clean
+	$(MAKE) MODULE=$(MODULE)
+
+.PHONY: sv
+sv: clean
+	iverilog $(COMPILE_ARGS) -s counter_tb -o sim_sv $(VERILOG_SOURCES) $(TB_SV)
+	vvp sim_sv

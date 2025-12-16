@@ -7,6 +7,7 @@ module counter #(
 ) (
     input logic clk_i,
     input logic rstn_i,
+    input logic [WIDTH_P-1:0] rstn_data_i,
     input logic [WIDTH_P-1:0] data_i,
     input logic up_i,
     input logic down_i,
@@ -43,7 +44,7 @@ module counter #(
         if (SATURATE_P) begin : sat_gen
             always_ff @(posedge clk_i) begin
                 if (!rstn_i) begin
-                    count_l <= '0;
+                    count_l <= rstn_data_i;
                 end else if (en_i) begin
                     if (load_i) begin
                         count_l <= (data_i > MAX_VAL_P[WIDTH_P-1:0]) ? MAX_VAL_P[WIDTH_P-1:0] : data_i;
@@ -59,7 +60,7 @@ module counter #(
         end else begin : roll_gen
             always_ff @(posedge clk_i) begin
                 if (!rstn_i) begin
-                    count_l <= '0;
+                    count_l <= rstn_data_i;
                 end else if (en_i) begin
                     count_l <= count_w;
                 end
