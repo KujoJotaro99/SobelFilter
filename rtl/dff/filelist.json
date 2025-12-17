@@ -1,0 +1,6 @@
+{
+  "top": "dff_posedge_sync",
+  "files": [
+    "dff_posedge_sync.sv"
+  ]
+}

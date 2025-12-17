@@ -49,5 +49,5 @@ python: clean
 
 .PHONY: sv
 sv: clean
-	iverilog $(COMPILE_ARGS) -s counter_tb -o sim_sv $(VERILOG_SOURCES) $(TB_SV)
+	iverilog $(COMPILE_ARGS) -s ramdelaybuffer_tb -o sim_sv $(VERILOG_SOURCES) $(TB_SV)
 	vvp sim_sv

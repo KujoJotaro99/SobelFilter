@@ -14,6 +14,7 @@ syn/icebreaker/build/
 *.bin
 *.json
 *.asc
+!rtl/**/filelist.json
 
 # IDE
 .vscode/
