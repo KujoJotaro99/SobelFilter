@@ -5,14 +5,14 @@ module counter #(
     parameter int MAX_VAL_P = 128,
     parameter bit SATURATE_P = 0
 ) (
-    input logic clk_i,
-    input logic rstn_i,
+    input logic [0:0] clk_i,
+    input logic [0:0] rstn_i,
     input logic [WIDTH_P-1:0] rstn_data_i,
     input logic [WIDTH_P-1:0] data_i,
-    input logic up_i,
-    input logic down_i,
-    input logic load_i,
-    input logic en_i,
+    input logic [0:0] up_i,
+    input logic [0:0] down_i,
+    input logic [0:0] load_i,
+    input logic [0:0] en_i,
     output logic [WIDTH_P-1:0] count_o
 );
 

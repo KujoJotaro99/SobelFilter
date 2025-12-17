@@ -5,12 +5,12 @@ module ramdelaybuffer_tb;
     localparam int WIDTH_P = 8;
     localparam int DELAY_P = 12;
 
-    logic clk_i;
-    logic rstn_i;
-    logic valid_i;
-    logic ready_i;
-    logic valid_o;
-    logic ready_o;
+    logic [0:0] clk_i;
+    logic [0:0] rstn_i;
+    logic [0:0] valid_i;
+    logic [0:0] ready_i;
+    logic [0:0] valid_o;
+    logic [0:0] ready_o;
     logic [WIDTH_P-1:0] data_i;
     logic [WIDTH_P-1:0] data_o;
 

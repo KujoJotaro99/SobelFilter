@@ -5,13 +5,13 @@ module sync_ram_block_tb;
     localparam int WIDTH_P = 8;
     localparam int DEPTH_P = 16;
 
-    logic clk_i;
-    logic rstn_i;
+    logic [0:0] clk_i;
+    logic [0:0] rstn_i;
     logic [WIDTH_P-1:0] data_i;
     logic [$clog2(DEPTH_P)-1:0] wr_addr_i;
     logic [$clog2(DEPTH_P)-1:0] rd_addr_i;
-    logic wr_en_i;
-    logic rd_en_i;
+    logic [0:0] wr_en_i;
+    logic [0:0] rd_en_i;
     logic [WIDTH_P-1:0] data_o;
 
     sync_ram_block #(

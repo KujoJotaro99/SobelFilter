@@ -6,14 +6,14 @@ module counter_tb;
     localparam int SATURATE_P = 1;
     localparam int MAX_VAL_P = 128;
 
-    logic clk_i;
-    logic rstn_i;
+    logic [0:0] clk_i;
+    logic [0:0] rstn_i;
     logic [WIDTH_P-1:0] rstn_data_i;
     logic [WIDTH_P-1:0] data_i;
-    logic up_i;
-    logic down_i;
-    logic load_i;
-    logic en_i;
+    logic [0:0] up_i;
+    logic [0:0] down_i;
+    logic [0:0] load_i;
+    logic [0:0] en_i;
     logic [WIDTH_P-1:0] count_o;
 
     counter #(

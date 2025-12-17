@@ -4,12 +4,12 @@ module ramdelaybuffer #(
     parameter WIDTH_P = 8,
     parameter DELAY_P = 12
 ) (
-    input logic clk_i,
-    input logic rstn_i,
-    input logic valid_i,
-    input logic ready_i,
-    output logic valid_o,
-    output logic ready_o,
+    input logic [0:0] clk_i,
+    input logic [0:0] rstn_i,
+    input logic [0:0] valid_i,
+    input logic [0:0] ready_i,
+    output logic [0:0] valid_o,
+    output logic [0:0] ready_o,
     input logic [WIDTH_P-1:0] data_i,
     output logic [WIDTH_P-1:0] data_o
 );
