@@ -3,7 +3,7 @@
 module sync_ram_block #(
     parameter WIDTH_P = 32, 
     parameter DEPTH_P = 128, 
-    parameter string filename_p = ""
+    parameter filename_p = ""
 ) (
     input logic [0:0] clk_i,
     input logic [0:0] rstn_i,
