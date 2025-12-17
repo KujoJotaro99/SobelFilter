@@ -28,6 +28,24 @@ Thumbs.db
 # Cocotb
 results.xml
 
+# Jupyter / IPython runtime junk
+.ipython/
+.jupyter/
+.local/
+.npm/
+
+# Docker helper scripts & local tooling
+run.sh
+docker/
+
+# Python tooling caches
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Notebook checkpoints
+.ipynb_checkpoints/
+
 # Venv
 venv/
 
