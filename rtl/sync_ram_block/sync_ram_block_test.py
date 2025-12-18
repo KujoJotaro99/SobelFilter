@@ -1,4 +1,4 @@
-"""Coverage: reset, single and multi read/write, random traffic, boundary address, read/write priority."""
+"""Coverage: reset, single and multi read/write, random traffic, boundary address, read/write priority, no dual read tests yet"""
 
 import random
 
@@ -19,27 +19,29 @@ async def test_sync_ram_block_reset(dut, width, depth):
     """Test reset behavior of sync RAM block."""
     dut.rstn_i.value = 1
     dut.wr_en_i.value = 0
-    dut.rd_en_i.value = 0
+    dut.rd_en_a_i.value = 0
+    dut.rd_en_b_i.value = 0
     await FallingEdge(dut.clk_i)
     dut.rstn_i.value = 0
     await FallingEdge(dut.clk_i)
-    assert dut.data_o.value == 0, f"Reset failed: data_o={dut.data_o.value}"
+    assert dut.data_a_o.value == 0, f"Reset failed: data_a_o={dut.data_a_o.value}"
 
 async def test_sync_ram_block_write_read_single(dut, width, depth):
     """Test single write and read behavior of sync RAM block."""
     dut.rstn_i.value = 1
     dut.wr_en_i.value = 1
-    dut.rd_en_i.value = 0
+    dut.rd_en_a_i.value = 0
+    dut.rd_en_b_i.value = 0
     dut.wr_addr_i.value = 0
-    dut.rd_addr_i.value = 0
+    dut.rd_addr_a_i.value = 0
     dut.data_i.value = 42
     await FallingEdge(dut.clk_i)
     dut.wr_en_i.value = 0
-    dut.rd_en_i.value = 1
+    dut.rd_en_a_i.value = 1
     await FallingEdge(dut.clk_i)
-    dut.rd_en_i.value = 0
+    dut.rd_en_a_i.value = 0
     await FallingEdge(dut.clk_i)
-    assert int(dut.data_o.value) == 42, f"Read data mismatch: got={int(dut.data_o.value)}, expected=42"
+    assert int(dut.data_a_o.value) == 42, f"Read data mismatch: got={int(dut.data_a_o.value)}, expected=42"
 
 async def test_sync_ram_block_write_read_multi_separate(dut, width, depth):
     """Test multiple write and read behavior of sync RAM block."""
@@ -47,33 +49,33 @@ async def test_sync_ram_block_write_read_multi_separate(dut, width, depth):
     for i, val in enumerate(random_stream):
         dut.rstn_i.value = 1
         dut.wr_en_i.value = 1
-        dut.rd_en_i.value = 0
+        dut.rd_en_a_i.value = 0
         dut.wr_addr_i.value = i
-        dut.rd_addr_i.value = i
+        dut.rd_addr_a_i.value = i
         dut.data_i.value = val
         await FallingEdge(dut.clk_i)
     for i, val in enumerate(random_stream):
         dut.wr_en_i.value = 0
-        dut.rd_en_i.value = 1
-        dut.rd_addr_i.value = i
+        dut.rd_en_a_i.value = 1
+        dut.rd_addr_a_i.value = i
         await FallingEdge(dut.clk_i)
         await FallingEdge(dut.clk_i)
-        assert int(dut.data_o.value) == val, f"Read data mismatch at addr {i}: got={int(dut.data_o.value)}, expected={val}"
+        assert int(dut.data_a_o.value) == val, f"Read data mismatch at addr {i}: got={int(dut.data_a_o.value)}, expected={val}"
 
 async def test_sync_ram_block_boundary_addr(dut, width, depth):
     """Test write/read at last valid address."""
     last_addr = depth - 1
     dut.wr_en_i.value = 1
-    dut.rd_en_i.value = 0
+    dut.rd_en_a_i.value = 0
     dut.wr_addr_i.value = last_addr
     dut.data_i.value = (1 << width) - 1
     await FallingEdge(dut.clk_i)
     dut.wr_en_i.value = 0
-    dut.rd_en_i.value = 1
-    dut.rd_addr_i.value = last_addr
+    dut.rd_en_a_i.value = 1
+    dut.rd_addr_a_i.value = last_addr
     await FallingEdge(dut.clk_i)
     await FallingEdge(dut.clk_i)
-    assert int(dut.data_o.value) == (1 << width) - 1, f"Boundary read mismatch: got={int(dut.data_o.value)}"
+    assert int(dut.data_a_o.value) == (1 << width) - 1, f"Boundary read mismatch: got={int(dut.data_a_o.value)}"
 
 async def test_sync_ram_block_same_cycle_rd_wr(dut, width, depth):
     """Test same-cycle read and write to the same address (read returns old data)."""
@@ -83,26 +85,26 @@ async def test_sync_ram_block_same_cycle_rd_wr(dut, width, depth):
 
     # preload old value
     dut.wr_en_i.value = 1
-    dut.rd_en_i.value = 0
+    dut.rd_en_a_i.value = 0
     dut.wr_addr_i.value = addr
     dut.data_i.value = old_val
     await FallingEdge(dut.clk_i)
 
     # simultaneous rd/wr, expect old data on read
     dut.wr_en_i.value = 1
-    dut.rd_en_i.value = 1
+    dut.rd_en_a_i.value = 1
     dut.wr_addr_i.value = addr
-    dut.rd_addr_i.value = addr
+    dut.rd_addr_a_i.value = addr
     dut.data_i.value = new_val
     await FallingEdge(dut.clk_i)
-    assert int(dut.data_o.value) == old_val, f"Simultaneous rd/wr should return old data, got {int(dut.data_o.value)}"
+    assert int(dut.data_a_o.value) == old_val, f"Simultaneous rd/wr should return old data, got {int(dut.data_a_o.value)}"
 
     # confirm new data visible next read
     dut.wr_en_i.value = 0
-    dut.rd_en_i.value = 1
+    dut.rd_en_a_i.value = 1
     await FallingEdge(dut.clk_i)
     
-    assert int(dut.data_o.value) == new_val, f"Updated data not visible: got {int(dut.data_o.value)}"
+    assert int(dut.data_a_o.value) == new_val, f"Updated data not visible: got {int(dut.data_a_o.value)}"
 
 async def test_sync_ram_block_write_read_multi_random(dut, width, depth):
     """Test multiple random write and read behavior of sync RAM block."""
@@ -112,8 +114,8 @@ async def test_sync_ram_block_write_read_multi_random(dut, width, depth):
     rd_addr = 0
     pending_read = None 
     dut.wr_en_i.value = 0
-    dut.rd_en_i.value = 0
-    dut.rd_addr_i.value = 0
+    dut.rd_en_a_i.value = 0
+    dut.rd_addr_a_i.value = 0
     dut.wr_addr_i.value = 0
     await FallingEdge(dut.clk_i)
     
@@ -121,7 +123,7 @@ async def test_sync_ram_block_write_read_multi_random(dut, width, depth):
         # check previous cycle read
         if pending_read is not None:
             addr, expected_val = pending_read
-            actual_val = int(dut.data_o.value)
+            actual_val = int(dut.data_a_o.value)
             assert actual_val == expected_val, \
                 f"Cycle {cycle}: Read mismatch at addr {addr}: expected {expected_val}, got {actual_val}"
             pending_read = None
@@ -135,10 +137,10 @@ async def test_sync_ram_block_write_read_multi_random(dut, width, depth):
             # should get old value if addresses collide, so expect value CURRENTLY inside the model pre update
             expected_val = expected_ram[rd_addr]
             pending_read = (rd_addr, expected_val)
-            dut.rd_en_i.value = 1
-            dut.rd_addr_i.value = rd_addr
+            dut.rd_en_a_i.value = 1
+            dut.rd_addr_a_i.value = rd_addr
         else:
-            dut.rd_en_i.value = 0
+            dut.rd_en_a_i.value = 0
         
         if do_write:
             val = random_stream.pop() if random_stream else random.randint(0, 2**width - 1)
@@ -162,7 +164,7 @@ async def test_sync_ram_block_write_read_multi_random(dut, width, depth):
     if pending_read is not None:
         await FallingEdge(dut.clk_i)
         addr, expected_val = pending_read
-        actual_val = int(dut.data_o.value)
+        actual_val = int(dut.data_a_o.value)
         assert actual_val == expected_val, \
             f"Final: Read mismatch at addr {addr}: expected {expected_val}, got {actual_val}"
 

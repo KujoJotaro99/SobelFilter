@@ -4,6 +4,8 @@ module ramdelaybuffer_tb;
 
     localparam int WIDTH_P = 8;
     localparam int DELAY_P = 12;
+    localparam int DELAY_A_P = DELAY_P;
+    localparam int DELAY_B_P = (DELAY_P > 1) ? (DELAY_P/2) : DELAY_P;
 
     logic [0:0] clk_i;
     logic [0:0] rstn_i;
@@ -12,11 +14,15 @@ module ramdelaybuffer_tb;
     logic [0:0] valid_o;
     logic [0:0] ready_o;
     logic [WIDTH_P-1:0] data_i;
-    logic [WIDTH_P-1:0] data_o;
+    logic [WIDTH_P-1:0] data_a_o;
+    logic [WIDTH_P-1:0] data_b_o;
+    logic [WIDTH_P-1:0] history [$];
 
     ramdelaybuffer #(
         .WIDTH_P(WIDTH_P),
-        .DELAY_P(DELAY_P)
+        .DELAY_P(DELAY_P),
+        .DELAY_A_P(DELAY_A_P),
+        .DELAY_B_P(DELAY_B_P)
     ) dut (
         .clk_i(clk_i),
         .rstn_i(rstn_i),
@@ -25,7 +31,8 @@ module ramdelaybuffer_tb;
         .valid_o(valid_o),
         .ready_o(ready_o),
         .data_i(data_i),
-        .data_o(data_o)
+        .data_a_o(data_a_o),
+        .data_b_o(data_b_o)
     );
 
     initial clk_i = 0;
@@ -37,6 +44,7 @@ module ramdelaybuffer_tb;
             valid_i = 0;
             ready_i = 1;
             data_i = '0;
+            history.delete();
             repeat (3) @(negedge clk_i);
             rstn_i = 1;
             @(negedge clk_i);
@@ -51,6 +59,28 @@ module ramdelaybuffer_tb;
             @(negedge clk_i);
             valid_i = 0;
             data_i = '0;
+            history.push_back(word);
+            check_history_outputs();
+        end
+    endtask
+
+    task automatic check_history_outputs;
+        int hist_sz;
+        logic [WIDTH_P-1:0] exp_val;
+        begin
+            hist_sz = history.size();
+            if (hist_sz > DELAY_A_P) begin
+                exp_val = history[hist_sz-1-DELAY_A_P];
+                if (data_a_o !== exp_val) begin
+                    $fatal(1, "Port A mismatch got %0d exp %0d at hist_sz %0d", data_a_o, exp_val, hist_sz);
+                end
+            end
+            if (hist_sz > DELAY_B_P) begin
+                exp_val = history[hist_sz-1-DELAY_B_P];
+                if (data_b_o !== exp_val) begin
+                    $fatal(1, "Port B mismatch got %0d exp %0d at hist_sz %0d", data_b_o, exp_val, hist_sz);
+                end
+            end
         end
     endtask
 
@@ -77,35 +107,45 @@ module ramdelaybuffer_tb;
                 push_word('0);
             end
 
-            if (data_o !== token) $fatal(1, "Delayed value mismatch got %0d exp %0d", data_o, token);
+            if (data_a_o !== token) $fatal(1, "Delayed value mismatch got %0d exp %0d", data_a_o, token);
         end
     endtask
 
     task automatic check_wraparound;
         localparam int TOTAL = (DELAY_P * 2) + 3;
         logic [WIDTH_P-1:0] sent [0:TOTAL-1];
-        logic [WIDTH_P-1:0] observed [0:TOTAL-1];
+        logic [WIDTH_P-1:0] observed_a [0:TOTAL-1];
+        logic [WIDTH_P-1:0] observed_b [0:TOTAL-1];
         logic [WIDTH_P-1:0] word;
-        int obs_idx;
+        int obs_idx_a;
+        int obs_idx_b;
         begin
             reset_dut();
             for (int i = 0; i < TOTAL; i++) begin
                 sent[i] = (i + 1);
             end
 
-            obs_idx = 0;
+            obs_idx_a = 0;
+            obs_idx_b = 0;
             for (int i = 0; i < (TOTAL + DELAY_P); i++) begin
                 word = (i < TOTAL) ? sent[i] : '0;
                 push_word(word);
-                if ((i >= DELAY_P) && ((i - DELAY_P) < TOTAL)) begin
-                    observed[obs_idx] = data_o;
-                    obs_idx++;
+                if ((i >= DELAY_A_P) && ((i - DELAY_A_P) < TOTAL)) begin
+                    observed_a[obs_idx_a] = data_a_o;
+                    obs_idx_a++;
+                end
+                if ((i >= DELAY_B_P) && ((i - DELAY_B_P) < TOTAL)) begin
+                    observed_b[obs_idx_b] = data_b_o;
+                    obs_idx_b++;
                 end
             end
 
             for (int i = 0; i < TOTAL; i++) begin
-                if (observed[i] !== sent[i]) begin
-                    $fatal(1, "Wraparound ordering mismatch idx %0d got %0d exp %0d", i, observed[i], sent[i]);
+                if (observed_a[i] !== sent[i]) begin
+                    $fatal(1, "Wraparound ordering mismatch port A idx %0d got %0d exp %0d", i, observed_a[i], sent[i]);
+                end
+                if (observed_b[i] !== sent[i]) begin
+                    $fatal(1, "Wraparound ordering mismatch port B idx %0d got %0d exp %0d", i, observed_b[i], sent[i]);
                 end
             end
         end
@@ -139,7 +179,7 @@ module ramdelaybuffer_tb;
 
                 if (hs > DELAY_P) begin
                     exp = hist[hs - 1 - DELAY_P];
-                    if (data_o !== exp) $fatal(1, "Gapped sequence mismatch got %0d exp %0d", data_o, exp);
+                    if (data_a_o !== exp) $fatal(1, "Gapped sequence mismatch got %0d exp %0d", data_a_o, exp);
                 end
             end
 
@@ -150,7 +190,7 @@ module ramdelaybuffer_tb;
                 push_word('0);
                 if (hs > DELAY_P) begin
                     exp = hist[hs - 1 - DELAY_P];
-                    if (data_o !== exp) $fatal(1, "Flush mismatch got %0d exp %0d", data_o, exp);
+                    if (data_a_o !== exp) $fatal(1, "Flush mismatch got %0d exp %0d", data_a_o, exp);
                 end
             end
         end

@@ -13,110 +13,24 @@ module conv2d #(
     output logic signed [(2*WIDTH_P)-1:0] gy_o
 );
 
-    // elastic handshake
-    elastic #(
-        .WIDTH_P(WIDTH_P)
-    ) stream_pipe (
-        .clk_i(clk_i),
-        .rstn_i(rstn_i),
-        .data_i('0),
-        .valid_i(valid_i),
-        .ready_o(ready_o),
-        .valid_o(valid_o),
-        .data_o(),
-        .ready_i(ready_i)
-    );
+    logic advance;
+    assign advance = valid_i & ready_o;
 
-    // col counter
-    logic [$clog2(DEPTH_P)-1:0] pixel_col;
-
-    counter #(
-        .WIDTH_P($clog2(DEPTH_P)),
-        .MAX_VAL_P(DEPTH_P-1), // unused
-        .SATURATE_P(0)
-    ) col_counter (
-        .clk_i(clk_i),
-        .rstn_i(rstn_i),
-        .rstn_data_i('0),
-        .data_i('0),
-        .up_i(valid_i & ready_o),
-        .down_i(1'b0),
-        .load_i((valid_i & ready_o) && (pixel_col == ($clog2(DEPTH_P))'(DEPTH_P-1))),
-        .en_i(1'b1),
-        .count_o(pixel_col)
-    );
-
-    // circular buffer
-    logic [$clog2(3*DEPTH_P)-1:0] wr_addr, rd_addr_a, rd_addr_b;
-
-    // write pointer current position
-    counter #(
-        .WIDTH_P($clog2(3*DEPTH_P)),
-        .MAX_VAL_P(3*DEPTH_P-1), // unused
-        .SATURATE_P(0)
-    ) wr_ptr_counter (
-        .clk_i(clk_i),
-        .rstn_i(rstn_i),
-        .rstn_data_i('0),
-        .data_i('0),
-        .up_i(valid_i & ready_o),
-        .down_i(1'b0),
-        .load_i((valid_i & ready_o) && (wr_addr == ($clog2(3*DEPTH_P))'(3*DEPTH_P-1))),
-        .en_i(1'b1),
-        .count_o(wr_addr)
-    );
-
-    // read pointer a 2 row ago 1*DEPTH_P
-    counter #(
-        .WIDTH_P($clog2(3*DEPTH_P)),
-        .MAX_VAL_P(3*DEPTH_P-1), // unused
-        .SATURATE_P(0)
-    ) rd_ptr_a_counter (
-        .clk_i(clk_i),
-        .rstn_i(rstn_i),
-        .rstn_data_i(($clog2(3*DEPTH_P))'(DEPTH_P)),
-        .data_i('0),
-        .up_i(valid_i & ready_o),
-        .down_i(1'b0),
-        .load_i((valid_i & ready_o) && (rd_addr_a == ($clog2(3*DEPTH_P))'(3*DEPTH_P-1))),
-        .en_i(1'b1),
-        .count_o(rd_addr_a)
-    );
-
-    // read pointer b 1 row ago 2*DEPTH_P
-    counter #(
-        .WIDTH_P($clog2(3*DEPTH_P)),
-        .MAX_VAL_P(3*DEPTH_P-1), // unused
-        .SATURATE_P(0)
-    ) rd_ptr_b_counter (
-        .clk_i(clk_i),
-        .rstn_i(rstn_i),
-        .rstn_data_i(($clog2(3*DEPTH_P))'(2*DEPTH_P)),
-        .data_i('0),
-        .up_i(valid_i & ready_o),
-        .down_i(1'b0),
-        .load_i((valid_i & ready_o) && (rd_addr_b == ($clog2(3*DEPTH_P))'(3*DEPTH_P-1))),
-        .en_i(1'b1),
-        .count_o(rd_addr_b)
-    );
-
-    // line buffers
     logic [WIDTH_P-1:0] ram_row0, ram_row1;
 
-    // dual read port ram since need access to 2 rows
-    sync_ram_block #(
+    ramdelaybuffer #(
         .WIDTH_P(WIDTH_P),
-        .DEPTH_P(3*DEPTH_P)
-    ) line_ram (
+        .DELAY_P(2*DEPTH_P),
+        .DELAY_A_P(2*DEPTH_P),
+        .DELAY_B_P(DEPTH_P)
+    ) line_buffer (
         .clk_i(clk_i),
         .rstn_i(rstn_i),
+        .valid_i(valid_i),
+        .ready_i(ready_i),
+        .valid_o(valid_o),
+        .ready_o(ready_o),
         .data_i(data_i),
-        .wr_addr_i(wr_addr),
-        .rd_addr_a_i(rd_addr_a),
-        .rd_addr_b_i(rd_addr_b),
-        .wr_en_i(valid_i & ready_o),
-        .rd_en_a_i(valid_i & ready_o),
-        .rd_en_b_i(valid_i & ready_o),
         .data_a_o(ram_row0),
         .data_b_o(ram_row1)
     );
@@ -131,7 +45,7 @@ module conv2d #(
                     conv_window[r][c] <= '0;
                 end
             end
-        end else if (valid_i && ready_o) begin
+        end else if (advance) begin
             // shift data into each row
             for (int r = 0; r < 3; r++) begin
                 conv_window[r][0] <= conv_window[r][1];
