@@ -1,3 +1,5 @@
+`timescale 1ns/1ps
+
 module conv2d #(
     parameter WIDTH_P = 8,
     parameter DEPTH_P = 16
@@ -12,9 +14,6 @@ module conv2d #(
     output logic signed [(2*WIDTH_P)-1:0] gx_o,
     output logic signed [(2*WIDTH_P)-1:0] gy_o
 );
-
-    logic advance;
-    assign advance = valid_i & ready_o;
 
     logic [WIDTH_P-1:0] ram_row0, ram_row1;
 
@@ -45,7 +44,7 @@ module conv2d #(
                     conv_window[r][c] <= '0;
                 end
             end
-        end else if (advance) begin
+        end else if (valid_i & ready_o) begin
             // shift data into each row
             for (int r = 0; r < 3; r++) begin
                 conv_window[r][0] <= conv_window[r][1];
@@ -60,34 +59,60 @@ module conv2d #(
     end
 
     // sobel x and y kernel
-    localparam signed [3:0] KX [2:0][2:0] = '{
-        '{-1,  0,  1},
-        '{-2,  0,  2},
-        '{-1,  0,  1}
-    };
+    // 1d 2d arrays not supported in icarus???
+    // localparam signed [3:0] KX [8:0] = '{
+    //     -1,  0,  1,
+    //     -2,  0,  2,
+    //     -1,  0,  1
+    // };
     
-    localparam signed [3:0] KY [2:0][2:0] = '{
-        '{-1, -2, -1},
-        '{ 0,  0,  0},
-        '{ 1,  2,  1}
-    };
+    // localparam signed [3:0] KY [8:0] = '{
+    //     -1, -2, -1,
+    //      0,  0,  0,
+    //      1,  2,  1
+    // };
+    function automatic signed [3:0] kx(input int idx);
+        case (idx)
+            0: kx = -1;  1: kx =  0;  2: kx =  1;
+            3: kx = -2;  4: kx =  0;  5: kx =  2;
+            6: kx = -1;  7: kx =  0;  8: kx =  1;
+            default: kx = 0;
+        endcase
+    endfunction
+
+    function automatic signed [3:0] ky(input int idx);
+        case (idx)
+            0: ky = -1;  1: ky = -2;  2: ky = -1;
+            3: ky =  0;  4: ky =  0;  5: ky =  0;
+            6: ky =  1;  7: ky =  2;  8: ky =  1;
+            default: ky = 0;
+        endcase
+    endfunction
+
 
     logic signed [(2*WIDTH_P)-1:0] gx_sum [0:8];
     logic signed [(2*WIDTH_P)-1:0] gy_sum [0:8];
 
-    assign gx_sum[0] = $signed(conv_window[0][0]) * KX[0][0];
-    assign gy_sum[0] = $signed(conv_window[0][0]) * KY[0][0];
+    assign gx_sum[0] = $signed(conv_window[0][0]) * kx(0);
+    assign gy_sum[0] = $signed(conv_window[0][0]) * ky(0);
 
     genvar t;
     generate
         for (t = 1; t < 9; t = t + 1) begin
-            assign gx_sum[t] = gx_sum[t-1] + ($signed(conv_window[t/3][t%3]) * KX[t/3][t%3]);
-            assign gy_sum[t] = gy_sum[t-1] + ($signed(conv_window[t/3][t%3]) * KY[t/3][t%3]);
+            assign gx_sum[t] = gx_sum[t-1] + ($signed(conv_window[t/3][t%3]) * kx(t)); // v*erilator wants to flatten this so it gives a circular comb error but its an prefix counter so its expected
+            assign gy_sum[t] = gy_sum[t-1] + ($signed(conv_window[t/3][t%3]) * ky(t));
         end
     endgenerate
 
     // gradient is sum of all previous values
-    assign gx_o = gx_sum[8];
-    assign gy_o = gy_sum[8];
+    always_ff @(posedge clk_i) begin
+        if (!rstn_i) begin
+            gx_o <= '0;
+            gy_o <= '0;
+        end else if (valid_o & ready_i) begin
+            gx_o <= gx_sum[8];
+            gy_o <= gy_sum[8];
+        end
+    end
 
 endmodule

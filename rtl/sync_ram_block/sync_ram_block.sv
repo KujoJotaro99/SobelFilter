@@ -34,9 +34,6 @@ module sync_ram_block #(
         if (!rstn_i) begin
             data_a_o <= '0;
             data_b_o <= '0;
-            for (int i = 0; i < DEPTH_P; i++) begin
-                //
-            end
         end else begin
             if (rd_en_a_i) begin
                 data_a_o <= mem_array[rd_addr_a_i];
