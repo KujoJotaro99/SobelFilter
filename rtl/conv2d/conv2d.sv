@@ -34,6 +34,7 @@ module conv2d #(
     logic [WIDTH_P-1:0] line_buf1_o;
     logic [WIDTH_P-1:0] line_buf2_o;
 
+    // sliding window
     int row;
     int col;
     always_ff @(posedge clk_i) begin
@@ -88,6 +89,8 @@ module conv2d #(
         .data_o(line_buf2_o)
     );
 
+    // convolution sum
+    // used for testing 
     // assign data_o = 
     //   {{WIDTH_P{1'b0}}, conv_window[2][0]} +
     //   {{WIDTH_P{1'b0}}, conv_window[2][1]} +
