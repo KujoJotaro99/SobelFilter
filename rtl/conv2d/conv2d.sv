@@ -2,24 +2,22 @@
 
 module conv2d #(
     parameter WIDTH_P = 8,
-    parameter DEPTH_P = 16,
-    parameter BUFF_SIZE = 9
-) (
-    input logic [0:0] clk_i,
-    input logic [0:0] rstn_i,
-    input logic [0:0] valid_i,
-    input logic [0:0] ready_i,
+    parameter DEPTH_P = 16
+)(
+    input logic clk_i,
+    input logic rstn_i,
+    input logic valid_i,
+    input logic ready_i,
     input logic [WIDTH_P-1:0] data_i,
-    output logic [0:0] valid_o,
-    output logic [0:0] ready_o,
-    output logic [(2*WIDTH_P)-1:0] data_o
+    output logic valid_o,
+    output logic ready_o,
+    output logic signed [(2*WIDTH_P)-1:0] gx_o,
+    output logic signed [(2*WIDTH_P)-1:0] gy_o
 );
 
-    // elastic pipeline
     elastic #(
         .WIDTH_P(WIDTH_P)
-    ) stream_pipe
-    (
+    ) stream_pipe (
         .clk_i(clk_i),
         .rstn_i(rstn_i),
         .data_i('0),
@@ -34,16 +32,13 @@ module conv2d #(
     logic [WIDTH_P-1:0] line_buf1_o;
     logic [WIDTH_P-1:0] line_buf2_o;
 
-    // sliding window
-    int row;
-    int col;
+    integer r;
+    integer c;
     always_ff @(posedge clk_i) begin
         if (!rstn_i) begin
-            for (row = 0; row < 3; row++) begin
-                for (col = 0; col < 3; col++) begin
-                    conv_window[row][col] <= '0;
-                end
-            end
+            for (r = 0; r < 3; r = r + 1)
+                for (c = 0; c < 3; c = c + 1)
+                    conv_window[r][c] <= '0;
         end else if (valid_i & ready_o) begin
             conv_window[0][2] <= conv_window[0][1];
             conv_window[0][1] <= conv_window[0][0];
@@ -59,11 +54,10 @@ module conv2d #(
         end
     end
 
-    // line buffer 1
     ramdelaybuffer #(
         .WIDTH_P(WIDTH_P),
         .DELAY_P(DEPTH_P-1)
-    ) conv2d_ramdelay_1_inst (
+    ) ram1 (
         .clk_i(clk_i),
         .rstn_i(rstn_i),
         .valid_i(valid_i & ready_o),
@@ -74,11 +68,10 @@ module conv2d #(
         .data_o(line_buf1_o)
     );
 
-    // line buffer 2
     ramdelaybuffer #(
         .WIDTH_P(WIDTH_P),
         .DELAY_P(DEPTH_P-1)
-    ) conv2d_ramdelay_2_inst (
+    ) ram2 (
         .clk_i(clk_i),
         .rstn_i(rstn_i),
         .valid_i(valid_i & ready_o),
@@ -89,41 +82,77 @@ module conv2d #(
         .data_o(line_buf2_o)
     );
 
-    // convolution sum
-    // used for testing 
-    // assign data_o = 
-    //   {{WIDTH_P{1'b0}}, conv_window[2][0]} +
-    //   {{WIDTH_P{1'b0}}, conv_window[2][1]} +
-    //   {{WIDTH_P{1'b0}}, conv_window[2][2]} +
-    //   {{WIDTH_P{1'b0}}, conv_window[1][0]} +
-    //   {{WIDTH_P{1'b0}}, conv_window[1][1]} +
-    //   {{WIDTH_P{1'b0}}, conv_window[1][2]} +
-    //   {{WIDTH_P{1'b0}}, conv_window[0][0]} +
-    //   {{WIDTH_P{1'b0}}, conv_window[0][1]} +
-    //   {{WIDTH_P{1'b0}}, conv_window[0][2]};
+    localparam signed [3:0] KX [2:0][2:0] = '{
+        '{-1, 0, 1},
+        '{-2, 0, 2},
+        '{-1, 0, 1}
+    };
 
-    logic [2*WIDTH_P-1:0] sum_chain [BUFF_SIZE-1:0];
+    localparam signed [3:0] KY [2:0][2:0] = '{
+        '{-1, -2, -1},
+        '{0, 0, 0},
+        '{1, 2, 1}
+    };
 
-    assign sum_chain[0] = {{WIDTH_P{1'b0}}, conv_window[0][0]};
+    SB_MAC16 #(
+        .NEG_TRIGGER(1'b1), // negedge reset
+        .C_REG(1'b0),
+        .A_REG(1'b0),
+        .B_REG(1'b0),
+        .D_REG(1'b0),
+        .TOP_8x8_MULT_REG(1'b0),
+        .BOT_8x8_MULT_REG(1'b0),
+        .PIPELINE_16x16_MULT_REG1(1'b0),
+        .PIPELINE_16x16_MULT_REG2(1'b0),
+        .TOPOUTPUT_SELECT(2'b00),
+        .TOPADDSUB_LOWERINPUT(2'b00),
+        .TOPADDSUB_UPPERINPUT(1'b0),
+        .TOPADDSUB_CARRYSELECT(2'b00),
+        .BOTOUTPUT_SELECT(2'b00),
+        .BOTADDSUB_LOWERINPUT(2'b00),
+        .BOTADDSUB_UPPERINPUT(1'b0),
+        .BOTADDSUB_CARRYSELECT(2'b00),
+        .MODE_8x8(1'b0),
+        .A_SIGNED(1'b0),
+        .B_SIGNED(1'b0)
+    ) sb_mac16_inst (
+        .CLK(),
+        .CE(),
 
-    genvar t;
-    generate
-        for (t = 0; t < BUFF_SIZE-1; t++) begin : gen_add_chain
-            localparam int TAP_ROW = (t+1) / 3;
-            localparam int TAP_COL = (t+1) % 3;
-            add #(
-                .WIDTH_P(2*WIDTH_P)
-            ) window_sum_add (
-                .a_i(sum_chain[t]),
-                .b_i({{WIDTH_P{1'b0}}, conv_window[TAP_ROW][TAP_COL]}), // sum of all older chains
-                .cin_i(1'b0),
-                .sum_o(sum_chain[t+1]),
-                .carry_o()
-            );
-        end
-    endgenerate
+        .A(),   // [15:0]
+        .B(),   // [15:0]
+        .C(),   // [15:0]
+        .D(),   // [15:0]
 
-    // newest chain is sum of all old values
-    assign data_o = sum_chain[BUFF_SIZE-1];
+        .AHOLD(),
+        .BHOLD(),
+        .CHOLD(),
+        .DHOLD(),
+
+        .IRSTTOP(),
+        .IRSTBOT(),
+
+        .ORSTTOP(),
+        .ORSTBOT(),
+
+        .OLOADTOP(),
+        .OLOADBOT(),
+
+        .ADDSUBTOP(),
+        .ADDSUBBOT(),
+
+        .OHOLDTOP(),
+        .OHOLDBOT(),
+
+        .CI(),
+        .ACCUMCI(),
+        .SIGNEXTIN(),
+
+        .CO(),
+        .ACCUMCO(),
+        .SIGNEXTOUT(),
+
+        .O()    //[31:0]
+    );
 
 endmodule
