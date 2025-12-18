@@ -11,8 +11,8 @@ VERILOG_SOURCES := $(RTL_SOURCES)
 
 TOPLEVEL := $(shell python3 -c "import json; \
     print(json.load(open('$(FILELIST_JSON)'))['top'])")
-
-MODULE := shift_test
+	
+MODULE := add_test
 
 COCOTB_LOG_LEVEL ?= INFO
 
@@ -20,7 +20,7 @@ COMPILE_ARGS += -g2012
 
 WAVES ?= 1
 
-TB_SV := shift_tb.sv
+TB_SV := add_tb.sv
 
 ifneq ($(filter sv,$(MAKECMDGOALS)),)
     # skip cocotb include for pure SystemVerilog run
@@ -39,10 +39,6 @@ sweep:
 	$(MAKE) WIDTH_P=16
 	$(MAKE) WIDTH_P=32
 
-print-root:
-	@echo "REPO_ROOT=$(REPO_ROOT)"
-	@echo "PWD=$(PWD)"
-
 lint:
 	verilator --lint-only $(RTL_SOURCES) --top-module $(TOPLEVEL)
 
@@ -53,5 +49,5 @@ python: clean
 
 .PHONY: sv
 sv: clean
-	iverilog $(COMPILE_ARGS) -s shift_tb -o sim_sv $(VERILOG_SOURCES) $(TB_SV)
+	iverilog $(COMPILE_ARGS) -s add_tb -o sim_sv $(VERILOG_SOURCES) $(TB_SV)
 	vvp sim_sv

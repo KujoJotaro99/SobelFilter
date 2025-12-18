@@ -1,0 +1,16 @@
+services:
+  sobel:
+    image: sobel-dev
+    container_name: sobel-latest
+    volumes:
+      - .:/workspace
+    ports:
+      - "8888:8888"
+    working_dir: /workspace
+    command: >
+      jupyter notebook
+      --ip=0.0.0.0
+      --no-browser
+      --ServerApp.token=''
+      --ServerApp.password=''
+    tty: true
