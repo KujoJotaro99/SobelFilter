@@ -17,11 +17,12 @@ module conv2d #(
 
     logic [WIDTH_P-1:0] ram_row0, ram_row1;
 
+    // likely need some kind of delayed valid with the ram because contents not cleared between test, only conv window is cleared so the circular buffer may dump wrong values
     ramdelaybuffer #(
         .WIDTH_P(WIDTH_P),
-        .DELAY_P(2*DEPTH_P),
-        .DELAY_A_P(2*DEPTH_P),
-        .DELAY_B_P(DEPTH_P)
+        .DELAY_P(2*DEPTH_P-1),
+        .DELAY_A_P(2*DEPTH_P-1),
+        .DELAY_B_P(DEPTH_P-1)
     ) line_buffer (
         .clk_i(clk_i),
         .rstn_i(rstn_i),
@@ -105,14 +106,6 @@ module conv2d #(
     endgenerate
 
     // gradient is sum of all previous values
-    always_ff @(posedge clk_i) begin
-        if (!rstn_i) begin
-            gx_o <= '0;
-            gy_o <= '0;
-        end else if (valid_o & ready_i) begin
-            gx_o <= gx_sum[8];
-            gy_o <= gy_sum[8];
-        end
-    end
-
+    assign gx_o = gx_sum[8];
+    assign gy_o = gy_sum[8];
 endmodule

@@ -3,6 +3,10 @@ import numpy as np
 import cv2 as cv
 from collections import deque
 
+import sys
+sys.stdout.flush()
+sys.stderr.flush()
+
 import cocotb
 from cocotb.clock import Clock
 from cocotb.triggers import RisingEdge, FallingEdge, Timer
@@ -36,103 +40,111 @@ class ModelManager:
         return gx, gy
 
 class InputManager:
-    def __init__(self, dut, stream):
-        self.dut = dut
+    def __init__(self, stream):
         self.data = stream.flatten()
         self.idx = 0
+        self.valid = False
+        self.current = 0
 
     def has_next(self):
         return self.idx < len(self.data)
 
-    def next(self):
-        val = int(self.data[self.idx])
-        self.idx += 1
-        return val
+    def drive(self, handshake):
+        if not self.valid and self.has_next():
+            self.current = int(self.data[self.idx])
+            self.valid = True
+        handshake.drive(self.valid, self.current if self.valid else 0)
 
-    async def run(self, in_queue):
-        self.dut.valid_i.value = 0
-
-        while self.has_next():
-            await FallingEdge(self.dut.clk_i)
-
-            # drive valid and hold data stable until accepted
-            self.dut.valid_i.value = 1
-            self.dut.data_i.value = int(self.data[self.idx])
-
-            if self.dut.ready_o.value:
-                in_queue.append(self.next())
-        self.dut.valid_i.value = 0
-
-class OutputManager:
-    def __init__(self, dut, out_queue):
-        self.dut = dut
-        self.queue = out_queue
-
-    async def run(self):
-        # the consumer is always ready
-        self.dut.ready_i.value = 1
-        while True:
-            await FallingEdge(self.dut.clk_i)
-
-            if self.dut.valid_o.value and self.dut.ready_i.value:
-                gx = self.dut.gx_o.value
-                gy = self.dut.gy_o.value
-
-                if not gx.is_resolvable or not gy.is_resolvable:
-                    continue
-
-                self.queue.append((gx.to_signed(), gy.to_signed()))
+    def accept(self):
+        if self.valid:
+            self.idx += 1
+            self.valid = False
+            return self.current
+        return None
 
 class ScoreManager:
     def __init__(self, model):
         self.model = model
+        self.pending = None
 
-    def run(self, input, output):
+    def update_expected(self, input):
         gx_exp, gy_exp = self.model.run(input)
-        gx_out, gy_out = output
         if gx_exp is not None and gy_exp is not None:
-            assert gx_out == gx_exp, f"Mismatch: got {gx_out}, expected {gx_exp}"
-            assert gy_out == gy_exp, f"Mismatch: got {gy_out}, expected {gy_exp}"
+            self.pending = (gx_exp, gy_exp)
+        else:
+            self.pending = None
+
+    def check_output(self, output):
+        gx_out, gy_out = output
+        if gx_out is None or gy_out is None:
+            return False
+        if self.pending is None:
+            return False
+        exp_gx, exp_gy = self.pending
+        assert gx_out == exp_gx, f"Mismatch: got {gx_out}, expected {exp_gx}"
+        assert gy_out == exp_gy, f"Mismatch: got {gy_out}, expected {exp_gy}"
+        self.pending = None
+        return True
 
 class TestManager:
     def __init__(self, dut, stream):
-        self.in_queue = deque()
-        self.out_queue = deque()
+        self.handshake = HandshakeManager(dut)
 
-        # termination condition
         self.height, self.width = stream.shape
         self.expected_outputs = max(0, (self.height - 2) * (self.width - 2))
         self.checked = 0
 
-        # stream is the stimulus, in_queue records accepted inputs
-        self.input = InputManager(dut, stream)
-        self.output = OutputManager(dut, self.out_queue)
+        self.input = InputManager(stream)
         self.model = ModelManager(dut)
         self.scoreboard = ScoreManager(self.model)
 
     async def run(self):
-        # record input into input queue
-        cocotb.start_soon(self.input.run(self.in_queue))
-        cocotb.start_soon(self.output.run())
+        try:
+            while self.checked < self.expected_outputs:
+                await FallingEdge(self.handshake.dut.clk_i)
+                self.input.drive(self.handshake)
+                await RisingEdge(self.handshake.dut.clk_i)
 
-        while self.checked < self.expected_outputs:
-            await FallingEdge(self.input.dut.clk_i)
+                if self.handshake.output_accepted():
+                    gx_out, gy_out = self.handshake.output_value()
+                    if self.scoreboard.check_output((gx_out, gy_out)):
+                        self.checked += 1
 
-            if self.in_queue and self.out_queue:
-                inp = self.in_queue.popleft()
-                out = self.out_queue.popleft()
-                self.scoreboard.run(inp, out)
-                self.checked += 1
-    
+                if self.handshake.input_accepted():
+                    inp = self.input.accept()
+                    if inp is not None:
+                        self.scoreboard.update_expected(inp)
+        finally:
+            self.handshake.dut.valid_i.value = 0
+            self.handshake.dut.ready_i.value = 0
+
+class HandshakeManager:
+    def __init__(self, dut):
+        self.dut = dut
+
+    def drive(self, valid, data):
+        self.dut.valid_i.value = 1 if valid else 0
+        self.dut.data_i.value = data
+        self.dut.ready_i.value = 1
+
+    def input_accepted(self):
+        return bool(self.dut.valid_i.value and self.dut.ready_o.value)
+
+    def output_accepted(self):
+        return bool(self.dut.valid_o.value and self.dut.ready_i.value)
+
+    def output_value(self):
+        if (not self.dut.gx_o.value.is_resolvable) or (not self.dut.gy_o.value.is_resolvable):
+            return (None, None)
+        return (self.dut.gx_o.value.to_signed(), self.dut.gy_o.value.to_signed())
+
 # unit tests
 
-_clock_started = False
+async def clock_test(dut):
+    cocotb.start_soon(Clock(dut.clk_i, CLK_PERIOD_NS, unit="ns").start())
+    await Timer(5 * CLK_PERIOD_NS, unit="ns")
 
 async def reset_test(dut):
-    global _clock_started
-    if not _clock_started:
-        cocotb.start_soon(Clock(dut.clk_i, CLK_PERIOD_NS, unit="ns").start())
-        _clock_started = True
     dut.rstn_i.value = 0
     dut.valid_i.value = 0
     dut.ready_i.value = 0
@@ -145,6 +157,7 @@ async def reset_test(dut):
 # all zeroes
 @cocotb.test()
 async def single_zeroes_test(dut):
+    await clock_test(dut)
     await reset_test(dut)
     width = int(dut.DEPTH_P.value)
     height = 4 * width
@@ -155,6 +168,7 @@ async def single_zeroes_test(dut):
 # all ones
 @cocotb.test()
 async def single_ones_test(dut):
+    await clock_test(dut)
     await reset_test(dut)
     width = int(dut.DEPTH_P.value)
     height = 4 * width
@@ -165,6 +179,7 @@ async def single_ones_test(dut):
 # impulse
 @cocotb.test()
 async def single_impulse_test(dut):
+    await clock_test(dut)
     await reset_test(dut)
     width = int(dut.DEPTH_P.value)
     height = 4 * width
@@ -176,6 +191,7 @@ async def single_impulse_test(dut):
 # alternate
 @cocotb.test()
 async def single_alternate_test(dut):
+    await clock_test(dut)
     await reset_test(dut)
     width = int(dut.DEPTH_P.value)
     height = 4 * width
@@ -188,6 +204,7 @@ async def single_alternate_test(dut):
 # random
 @cocotb.test()
 async def single_random_test(dut):
+    await clock_test(dut)
     await reset_test(dut)
     width = int(dut.DEPTH_P.value)
     height = 4 * width
@@ -200,7 +217,7 @@ async def single_random_test(dut):
 async def single_image_test(dut):
     await reset_test(dut)
     width = int(dut.DEPTH_P.value)
-    img = cv.imread("../jupyter/car.jpg", cv.IMREAD_GRAYSCALE)
+    img = cv.imread("../../jupyter/car.jpg", cv.IMREAD_GRAYSCALE)
     img = img[:, :width]
     env = TestManager(dut, img)
     await env.run()

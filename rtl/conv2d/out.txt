@@ -1,0 +1,91 @@
+rm -rf sim_build __pycache__ .pytest_cache *.pyc *.vcd *.fst results.xml sim_sv
+make MODULE=conv2d_test
+make[1]: Entering directory '/workspace/rtl/conv2d'
+rm -f results.xml
+"make" -f Makefile results.xml
+make[2]: Entering directory '/workspace/rtl/conv2d'
+mkdir -p sim_build
+/usr/bin/iverilog -o sim_build/sim.vvp -s conv2d -g2012 -g2012 -f sim_build/cmds.f -s cocotb_iverilog_dump  conv2d.sv ../sync_ram_block/sync_ram_block.sv ../counter/counter.sv ../ramdelaybuffer/ramdelaybuffer.sv ../../submodules/imports/elastic.sv sim_build/cocotb_iverilog_dump.v
+rm -f results.xml
+COCOTB_TEST_MODULES=conv2d_test COCOTB_TESTCASE= COCOTB_TEST_FILTER= COCOTB_TOPLEVEL=conv2d TOPLEVEL_LANG=verilog \
+         /usr/bin/vvp -M /usr/local/lib/python3.10/dist-packages/cocotb/libs -m libcocotbvpi_icarus   sim_build/sim.vvp -fst  
+     -.--ns INFO     gpi                                ..mbed/gpi_embed.cpp:93   in _embed_init_python              Using Python 3.10.14 interpreter at /usr/bin/python3
+     -.--ns INFO     gpi                                ../gpi/GpiCommon.cpp:79   in gpi_print_registered_impl       VPI registered
+     0.00ns INFO     cocotb                             Running on Icarus Verilog version 11.0 (stable)
+     0.00ns WARNING  gpi                                vpi_iterate returned NULL for type vpiInstance for object NULL
+     0.00ns INFO     cocotb                             Seeding Python random module with 1766130644
+     0.00ns INFO     cocotb                             Initialized cocotb v2.0.1 from /usr/local/lib/python3.10/dist-packages/cocotb
+     0.00ns INFO     cocotb                             Running tests
+     0.00ns INFO     cocotb.regression                  running conv2d_test.single_zeroes_test (1/6)
+  9290.00ns INFO     cocotb.regression                  conv2d_test.single_zeroes_test passed
+  9290.00ns INFO     cocotb.regression                  running conv2d_test.single_ones_test (2/6)
+ 18580.00ns INFO     cocotb.regression                  conv2d_test.single_ones_test passed
+ 18580.00ns INFO     cocotb.regression                  running conv2d_test.single_impulse_test (3/6)
+ 27870.00ns INFO     cocotb.regression                  conv2d_test.single_impulse_test passed
+ 27870.00ns INFO     cocotb.regression                  running conv2d_test.single_alternate_test (4/6)
+ 37160.00ns INFO     cocotb.regression                  conv2d_test.single_alternate_test passed
+ 37160.00ns INFO     cocotb.regression                  running conv2d_test.single_random_test (5/6)
+ 37780.00ns WARNING  ..e_random_test.single_random_test Mismatch: got -265, expected 247
+                                                        assert -265 == 247
+                                                        Traceback (most recent call last):
+                                                          File "/workspace/rtl/conv2d/conv2d_test.py", line 214, in single_random_test
+                                                            await env.run()
+                                                          File "/workspace/rtl/conv2d/conv2d_test.py", line 110, in run
+                                                            if self.scoreboard.check_output((gx_out, gy_out)):
+                                                          File "/workspace/rtl/conv2d/conv2d_test.py", line 84, in check_output
+                                                            assert gx_out == exp_gx, f"Mismatch: got {gx_out}, expected {exp_gx}"
+                                                        AssertionError: Mismatch: got -265, expected 247
+                                                        assert -265 == 247
+ 37780.00ns WARNING  cocotb.regression                  conv2d_test.single_random_test failed
+ 37780.00ns INFO     cocotb.regression                  running conv2d_test.single_image_test (6/6)
+ 37880.00ns WARNING  cocotb.regression                  conv2d_test.single_image_test failed
+ 37880.00ns INFO     cocotb.regression                  *******************************************************************************************
+                                                        ** TEST                               STATUS  SIM TIME (ns)  REAL TIME (s)  RATIO (ns/s) **
+                                                        *******************************************************************************************
+                                                        ** conv2d_test.single_zeroes_test      PASS        9290.00           0.09      99809.64  **
+                                                        ** conv2d_test.single_ones_test        PASS        9290.00           0.09      99417.21  **
+                                                        ** conv2d_test.single_impulse_test     PASS        9290.00           0.09     100802.71  **
+                                                        ** conv2d_test.single_alternate_test   PASS        9290.00           0.10      97356.49  **
+                                                        ** conv2d_test.single_random_test      FAIL         620.00           0.01      63450.82  **
+                                                        ** conv2d_test.single_image_test       FAIL         100.00           0.00      78766.27  **
+                                                        *******************************************************************************************
+                                                        ** TESTS=6 PASS=4 FAIL=2 SKIP=0                   37880.00           0.39      96820.11  **
+                                                        *******************************************************************************************
+FST info: dumpfile dump.fst opened for output.
+FST warning: array word conv2d.line_buffer.sync_ram_delay.mem_array[0] will conflict with an escaped identifier.
+FST warning: array word conv2d.line_buffer.sync_ram_delay.mem_array[1] will conflict with an escaped identifier.
+FST warning: array word conv2d.line_buffer.sync_ram_delay.mem_array[2] will conflict with an escaped identifier.
+FST warning: array word conv2d.line_buffer.sync_ram_delay.mem_array[3] will conflict with an escaped identifier.
+FST warning: array word conv2d.line_buffer.sync_ram_delay.mem_array[4] will conflict with an escaped identifier.
+FST warning: array word conv2d.line_buffer.sync_ram_delay.mem_array[5] will conflict with an escaped identifier.
+FST warning: array word conv2d.line_buffer.sync_ram_delay.mem_array[6] will conflict with an escaped identifier.
+FST warning: array word conv2d.line_buffer.sync_ram_delay.mem_array[7] will conflict with an escaped identifier.
+FST warning: array word conv2d.line_buffer.sync_ram_delay.mem_array[8] will conflict with an escaped identifier.
+FST warning: array word conv2d.line_buffer.sync_ram_delay.mem_array[9] will conflict with an escaped identifier.
+FST warning: array word conv2d.line_buffer.sync_ram_delay.mem_array[10] will conflict with an escaped identifier.
+FST warning: array word conv2d.line_buffer.sync_ram_delay.mem_array[11] will conflict with an escaped identifier.
+FST warning: array word conv2d.line_buffer.sync_ram_delay.mem_array[12] will conflict with an escaped identifier.
+FST warning: array word conv2d.line_buffer.sync_ram_delay.mem_array[13] will conflict with an escaped identifier.
+FST warning: array word conv2d.line_buffer.sync_ram_delay.mem_array[14] will conflict with an escaped identifier.
+FST warning: array word conv2d.line_buffer.sync_ram_delay.mem_array[15] will conflict with an escaped identifier.
+FST warning: array word conv2d.line_buffer.sync_ram_delay.mem_array[16] will conflict with an escaped identifier.
+FST warning: array word conv2d.line_buffer.sync_ram_delay.mem_array[17] will conflict with an escaped identifier.
+FST warning: array word conv2d.line_buffer.sync_ram_delay.mem_array[18] will conflict with an escaped identifier.
+FST warning: array word conv2d.line_buffer.sync_ram_delay.mem_array[19] will conflict with an escaped identifier.
+FST warning: array word conv2d.line_buffer.sync_ram_delay.mem_array[20] will conflict with an escaped identifier.
+FST warning: array word conv2d.line_buffer.sync_ram_delay.mem_array[21] will conflict with an escaped identifier.
+FST warning: array word conv2d.line_buffer.sync_ram_delay.mem_array[22] will conflict with an escaped identifier.
+FST warning: array word conv2d.line_buffer.sync_ram_delay.mem_array[23] will conflict with an escaped identifier.
+FST warning: array word conv2d.line_buffer.sync_ram_delay.mem_array[24] will conflict with an escaped identifier.
+FST warning: array word conv2d.line_buffer.sync_ram_delay.mem_array[25] will conflict with an escaped identifier.
+FST warning: array word conv2d.line_buffer.sync_ram_delay.mem_array[26] will conflict with an escaped identifier.
+FST warning: array word conv2d.line_buffer.sync_ram_delay.mem_array[27] will conflict with an escaped identifier.
+FST warning: array word conv2d.line_buffer.sync_ram_delay.mem_array[28] will conflict with an escaped identifier.
+FST warning: array word conv2d.line_buffer.sync_ram_delay.mem_array[29] will conflict with an escaped identifier.
+FST warning: array word conv2d.line_buffer.sync_ram_delay.mem_array[30] will conflict with an escaped identifier.
+FST warning: array word conv2d.line_buffer.sync_ram_delay.mem_array[31] will conflict with an escaped identifier.
+conv2d.line_buffer.sync_ram_delay: depth_p is                    32, width_p is           8
+FST warning: sim_build/cocotb_iverilog_dump.v:3: $dumpfile called after $dumpvars started,
+                                                 using existing file (dump.fst).
+make[2]: Leaving directory '/workspace/rtl/conv2d'
+make[1]: Leaving directory '/workspace/rtl/conv2d'
