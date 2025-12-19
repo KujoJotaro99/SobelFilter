@@ -94,14 +94,15 @@ module conv2d #(
     logic signed [(2*WIDTH_P)-1:0] gx_sum [0:8];
     logic signed [(2*WIDTH_P)-1:0] gy_sum [0:8];
 
-    assign gx_sum[0] = $signed(conv_window[0][0]) * kx(0);
-    assign gy_sum[0] = $signed(conv_window[0][0]) * ky(0);
+    assign gx_sum[0] = $signed({1'b0, conv_window[0][0]}) * kx(0);
+    assign gy_sum[0] = $signed({1'b0, conv_window[0][0]}) * ky(0);
 
     genvar t;
     generate
         for (t = 1; t < 9; t = t + 1) begin
-            assign gx_sum[t] = gx_sum[t-1] + ($signed(conv_window[t/3][t%3]) * kx(t)); // v*erilator wants to flatten this so it gives a circular comb error but its an prefix counter so its expected
-            assign gy_sum[t] = gy_sum[t-1] + ($signed(conv_window[t/3][t%3]) * ky(t));
+            // converted to unsigned to match the jupyter model
+            assign gx_sum[t] = gx_sum[t-1] + ($signed({1'b0, conv_window[t/3][t%3]}) * kx(t)); // v*erilator wants to flatten this so it gives a circular comb error but its an prefix counter so its expected
+            assign gy_sum[t] = gy_sum[t-1] + ($signed({1'b0, conv_window[t/3][t%3]}) * ky(t));
         end
     endgenerate
 

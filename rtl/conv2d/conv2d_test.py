@@ -1,6 +1,7 @@
 """coverage reset, sobel x and y convolution, trying to implement uvm like test plan"""
 import numpy as np
 import cv2 as cv
+from pathlib import Path
 from collections import deque
 
 import sys
@@ -83,6 +84,7 @@ class ScoreManager:
         exp_gx, exp_gy = self.pending
         assert gx_out == exp_gx, f"Mismatch: got {gx_out}, expected {exp_gx}"
         assert gy_out == exp_gy, f"Mismatch: got {gy_out}, expected {exp_gy}"
+        # print(f"X: got {gx_out}, expected {exp_gx}, Y: got {gy_out}, expected {exp_gy}")
         self.pending = None
         return True
 
@@ -215,9 +217,13 @@ async def single_random_test(dut):
 
 @cocotb.test()
 async def single_image_test(dut):
+    await clock_test(dut)
     await reset_test(dut)
     width = int(dut.DEPTH_P.value)
-    img = cv.imread("../../jupyter/car.jpg", cv.IMREAD_GRAYSCALE)
+    img_path = Path(__file__).resolve().parents[2] / "jupyter" / "car.jpg"
+    img = cv.imread(str(img_path), cv.IMREAD_GRAYSCALE)
+    if img is None:
+        raise FileNotFoundError(img_path)
     img = img[:, :width]
     env = TestManager(dut, img)
     await env.run()
