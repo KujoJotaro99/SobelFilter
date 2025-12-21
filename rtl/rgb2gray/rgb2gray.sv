@@ -45,13 +45,9 @@ module rgb2gray #(
 
     // approximate shifts as a mac shift operation
     always_comb begin
-        red_fp = {red_i, {FRAC_WIDTH_P{1'b0}}};
-        green_fp = {green_i, {FRAC_WIDTH_P{1'b0}}};
-        blue_fp = {blue_i, {FRAC_WIDTH_P{1'b0}}};
-
-        red_term_fp = (red_fp >> RED_SHIFT_1) + (red_fp >> RED_SHIFT_2);
-        green_term_fp = (green_fp >> GREEN_SHIFT_1) + (green_fp >> GREEN_SHIFT_2);
-        blue_term_fp = (blue_fp >> BLUE_SHIFT_1) + (blue_fp >> BLUE_SHIFT_2);
+        red_term_fp = (red_i >> RED_SHIFT_1) + (red_i >> RED_SHIFT_2);
+        green_term_fp = (green_i >> GREEN_SHIFT_1) + (green_i >> GREEN_SHIFT_2);
+        blue_term_fp = (blue_i >> BLUE_SHIFT_1) + (blue_i >> BLUE_SHIFT_2);
 
         gray_acc_fp = {1'b0, red_term_fp} + {1'b0, green_term_fp} + {1'b0, blue_term_fp};
     end
@@ -69,6 +65,5 @@ module rgb2gray #(
         .data_o(gray_o),
         .ready_i(ready_i)
     );
-
 
 endmodule
