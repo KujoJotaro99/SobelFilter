@@ -7,8 +7,8 @@ module rgb2gray #(
     input logic [0:0] rstn_i,
     input logic [0:0] valid_i,
     input logic [0:0] ready_i,
-    input logic [0:0] valid_o,
-    input logic [0:0] ready_o,
+    output logic [0:0] valid_o,
+    output logic [0:0] ready_o,
     input logic [WIDTH_P-1:0] red_i,
     input logic [WIDTH_P-1:0] blue_i,
     input logic [WIDTH_P-1:0] green_i,
@@ -42,6 +42,7 @@ module rgb2gray #(
     logic [WIDTH_P-1:-FRAC_WIDTH_P] red_term_fp, green_term_fp, blue_term_fp;
     // [input bits + localparam bits:0]
     logic [WIDTH_P:-FRAC_WIDTH_P] gray_acc_fp;
+    logic [WIDTH_P-1:0] gray_int;
 
     // approximate shifts as a mac shift operation
     always_comb begin
@@ -55,6 +56,7 @@ module rgb2gray #(
 
         gray_acc_fp = {1'b0, red_term_fp} + {1'b0, green_term_fp} + {1'b0, blue_term_fp};
     end
+    assign gray_int = gray_acc_fp[WIDTH_P-1:0]; // upper non fractional bits
 
     // elastic
     elastic #(
@@ -66,7 +68,7 @@ module rgb2gray #(
         .valid_i(valid_i),
         .ready_o(ready_o),
         .valid_o(valid_o),
-        .data_o(gray_acc_fp[WIDTH_P-1:0];), // upper non fractional bits
+        .data_o(gray_o),
         .ready_i(ready_i)
     );
 
