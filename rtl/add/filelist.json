@@ -1,8 +1,0 @@
-{
-  "top": "add",
-  "files": [
-    "add.sv",
-    "../half_add/half_add.sv",
-    "../full_add/full_add.sv"
-  ]
-}
