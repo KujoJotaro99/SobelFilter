@@ -1,0 +1,73 @@
+rm -rf sim_build __pycache__ .pytest_cache *.pyc *.vcd *.fst results.xml sim_sv
+make MODULE=rgb2gray_test
+make[1]: Entering directory '/workspace/rtl/rgb2gray'
+rm -f results.xml
+"make" -f Makefile results.xml
+make[2]: Entering directory '/workspace/rtl/rgb2gray'
+mkdir -p sim_build
+/usr/bin/iverilog -o sim_build/sim.vvp -s rgb2gray -g2012 -g2012 -f sim_build/cmds.f -s cocotb_iverilog_dump  rgb2gray.sv ../../submodules/imports/elastic.sv sim_build/cocotb_iverilog_dump.v
+rm -f results.xml
+COCOTB_TEST_MODULES=rgb2gray_test COCOTB_TESTCASE= COCOTB_TEST_FILTER= COCOTB_TOPLEVEL=rgb2gray TOPLEVEL_LANG=verilog \
+         /usr/bin/vvp -M /usr/local/lib/python3.10/dist-packages/cocotb/libs -m libcocotbvpi_icarus   sim_build/sim.vvp -fst  
+     -.--ns INFO     gpi                                ..mbed/gpi_embed.cpp:93   in _embed_init_python              Using Python 3.10.14 interpreter at /usr/bin/python3
+     -.--ns INFO     gpi                                ../gpi/GpiCommon.cpp:79   in gpi_print_registered_impl       VPI registered
+     0.00ns INFO     cocotb                             Running on Icarus Verilog version 11.0 (stable)
+     0.00ns WARNING  gpi                                vpi_iterate returned NULL for type vpiInstance for object NULL
+     0.00ns INFO     cocotb                             Seeding Python random module with 1766376902
+     0.00ns INFO     cocotb                             Initialized cocotb v2.0.1 from /usr/local/lib/python3.10/dist-packages/cocotb
+     0.00ns INFO     cocotb                             Running tests
+     0.00ns INFO     cocotb.regression                  running rgb2gray_test.single_zeroes_test (1/6)
+   280.00ns WARNING  py.warnings                        /workspace/rtl/rgb2gray/rgb2gray_test.py:133: DeprecationWarning: `logic_array.integer` getter is deprecated. Use `logic_array.to_unsigned()` instead.
+                                                          return self.dut.gray_o.value.integer
+  1270.00ns INFO     cocotb.regression                  rgb2gray_test.single_zeroes_test passed
+  1270.00ns INFO     cocotb.regression                  running rgb2gray_test.single_ones_test (2/6)
+  2540.00ns INFO     cocotb.regression                  rgb2gray_test.single_ones_test passed
+  2540.00ns INFO     cocotb.regression                  running rgb2gray_test.single_impulse_test (3/6)
+  3810.00ns INFO     cocotb.regression                  rgb2gray_test.single_impulse_test passed
+  3810.00ns INFO     cocotb.regression                  running rgb2gray_test.single_alternate_test (4/6)
+  5080.00ns INFO     cocotb.regression                  rgb2gray_test.single_alternate_test passed
+  5080.00ns INFO     cocotb.regression                  running rgb2gray_test.single_random_test (5/6)
+  6350.00ns WARNING  ..e_random_test.single_random_test RMS error too high: 10.4484448603608 (threshold 10)
+                                                        assert 10.4484448603608 < 10
+                                                         +  where 10 = <rgb2gray_test.ScoreManager object at 0x2aaace8494b0>.rms_threshold
+                                                        Traceback (most recent call last):
+                                                          File "/workspace/rtl/rgb2gray/rgb2gray_test.py", line 197, in single_random_test
+                                                            await env.run()
+                                                          File "/workspace/rtl/rgb2gray/rgb2gray_test.py", line 102, in run
+                                                            if self.scoreboard.check_output(gray_out):
+                                                          File "/workspace/rtl/rgb2gray/rgb2gray_test.py", line 79, in check_output
+                                                            assert rms < self.rms_threshold, f"RMS error too high: {rms} (threshold {self.rms_threshold})"
+                                                        AssertionError: RMS error too high: 10.4484448603608 (threshold 10)
+                                                        assert 10.4484448603608 < 10
+                                                         +  where 10 = <rgb2gray_test.ScoreManager object at 0x2aaace8494b0>.rms_threshold
+  6350.00ns WARNING  cocotb.regression                  rgb2gray_test.single_random_test failed
+  6350.00ns INFO     cocotb.regression                  running rgb2gray_test.single_image_test (6/6)
+ 45020.00ns WARNING  ..gle_image_test.single_image_test RMS error too high: 11.890527129470193 (threshold 10)
+                                                        assert 11.890527129470193 < 10
+                                                         +  where 10 = <rgb2gray_test.ScoreManager object at 0x2aaace84b8e0>.rms_threshold
+                                                        Traceback (most recent call last):
+                                                          File "/workspace/rtl/rgb2gray/rgb2gray_test.py", line 212, in single_image_test
+                                                            await env.run()
+                                                          File "/workspace/rtl/rgb2gray/rgb2gray_test.py", line 102, in run
+                                                            if self.scoreboard.check_output(gray_out):
+                                                          File "/workspace/rtl/rgb2gray/rgb2gray_test.py", line 79, in check_output
+                                                            assert rms < self.rms_threshold, f"RMS error too high: {rms} (threshold {self.rms_threshold})"
+                                                        AssertionError: RMS error too high: 11.890527129470193 (threshold 10)
+                                                        assert 11.890527129470193 < 10
+                                                         +  where 10 = <rgb2gray_test.ScoreManager object at 0x2aaace84b8e0>.rms_threshold
+ 45020.00ns WARNING  cocotb.regression                  rgb2gray_test.single_image_test failed
+ 45020.00ns INFO     cocotb.regression                  *********************************************************************************************
+                                                        ** TEST                                 STATUS  SIM TIME (ns)  REAL TIME (s)  RATIO (ns/s) **
+                                                        *********************************************************************************************
+                                                        ** rgb2gray_test.single_zeroes_test      PASS        1270.00           0.16       7735.71  **
+                                                        ** rgb2gray_test.single_ones_test        PASS        1270.00           0.14       8976.79  **
+                                                        ** rgb2gray_test.single_impulse_test     PASS        1270.00           0.14       9206.30  **
+                                                        ** rgb2gray_test.single_alternate_test   PASS        1270.00           0.14       9123.63  **
+                                                        ** rgb2gray_test.single_random_test      FAIL        1270.00           0.22       5748.75  **
+                                                        ** rgb2gray_test.single_image_test       FAIL       38670.00           4.87       7944.29  **
+                                                        *********************************************************************************************
+                                                        ** TESTS=6 PASS=4 FAIL=2 SKIP=0                     45020.00           5.76       7810.64  **
+                                                        *********************************************************************************************
+FST info: dumpfile sim_build/rgb2gray.fst opened for output.
+make[2]: Leaving directory '/workspace/rtl/rgb2gray'
+make[1]: Leaving directory '/workspace/rtl/rgb2gray'

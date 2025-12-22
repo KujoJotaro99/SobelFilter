@@ -34,22 +34,16 @@ module rgb2gray #(
     localparam int BLUE_SHIFT_1 = 4;
     localparam int BLUE_SHIFT_2 = 5;
 
-    // fixed point
-    localparam int FRAC_WIDTH_P = 8;
-
-    // [input bits + localparam bits - 1:0]
-    logic [WIDTH_P-1:-FRAC_WIDTH_P] red_fp, green_fp, blue_fp;
-    logic [WIDTH_P-1:-FRAC_WIDTH_P] red_term_fp, green_term_fp, blue_term_fp;
-    // [input bits + localparam bits:0]
-    logic [WIDTH_P:-FRAC_WIDTH_P] gray_acc_fp;
+    logic [WIDTH_P-1:0] red_term, green_term, blue_term;
+    logic [WIDTH_P:0] gray_acc;
 
     // approximate shifts as a mac shift operation
     always_comb begin
-        red_term_fp = (red_i >> RED_SHIFT_1) + (red_i >> RED_SHIFT_2);
-        green_term_fp = (green_i >> GREEN_SHIFT_1) + (green_i >> GREEN_SHIFT_2);
-        blue_term_fp = (blue_i >> BLUE_SHIFT_1) + (blue_i >> BLUE_SHIFT_2);
+        red_term = (red_i >> RED_SHIFT_1) + (red_i >> RED_SHIFT_2);
+        green_term = (green_i >> GREEN_SHIFT_1) + (green_i >> GREEN_SHIFT_2);
+        blue_term = (blue_i >> BLUE_SHIFT_1) + (blue_i >> BLUE_SHIFT_2);
 
-        gray_acc_fp = {1'b0, red_term_fp} + {1'b0, green_term_fp} + {1'b0, blue_term_fp};
+        gray_acc = red_term + green_term + blue_term;
     end
 
     // elastic
@@ -58,7 +52,7 @@ module rgb2gray #(
     ) rgb2gray_elastic (
         .clk_i(clk_i),
         .rstn_i(rstn_i),
-        .data_i(gray_acc_fp[WIDTH_P-1:0]),
+        .data_i(gray_acc[WIDTH_P-1:0]),
         .valid_i(valid_i),
         .ready_o(ready_o),
         .valid_o(valid_o),

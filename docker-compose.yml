@@ -1,6 +1,6 @@
 services:
   sobel:
-    image: sobel-dev
+    image: picklerick65/sobel-dev:latest
     container_name: sobel-latest
     volumes:
       - .:/workspace

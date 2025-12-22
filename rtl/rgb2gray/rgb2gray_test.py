@@ -51,8 +51,10 @@ class InputManager:
         return None
 
 class ScoreManager:
-    def __init__(self, model):
+    def __init__(self, model, expected_outputs, rms_threshold=10):
         self.model = model
+        self.expected_outputs = expected_outputs
+        self.rms_threshold = rms_threshold
         self.pending = deque()
         self.sse = 0
         self.n = 0
@@ -69,10 +71,12 @@ class ScoreManager:
         if not self.pending:
             return False
         gray_exp = self.pending.popleft()
-        # implement rms
         err = int(gray_out) - int(gray_exp)
         self.sse += err * err
         self.n += 1
+        if self.n == self.expected_outputs:
+            rms = float(np.sqrt(self.sse / self.n))
+            assert rms < self.rms_threshold, f"RMS error too high: {rms} (threshold {self.rms_threshold})"
         return True
 
 class TestManager:
@@ -84,7 +88,7 @@ class TestManager:
 
         self.input = InputManager(stream)
         self.model = ModelManager(dut)
-        self.scoreboard = ScoreManager(self.model)
+        self.scoreboard = ScoreManager(self.model, self.expected_outputs, rms_threshold=12)
 
     async def run(self):
         try:
@@ -102,9 +106,6 @@ class TestManager:
                     inp = self.input.accept()
                     if inp is not None:
                         self.scoreboard.update_expected(inp)
-            if self.scoreboard.n > 0:
-                rms = float(np.sqrt(self.scoreboard.sse / self.scoreboard.n))
-                print(f"RMS error: {rms}")
         finally:
             self.handshake.dut.valid_i.value = 0
             self.handshake.dut.ready_i.value = 0
