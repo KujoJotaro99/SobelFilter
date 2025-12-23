@@ -15,9 +15,10 @@ def get_params(dut):
     }
 
 async def counter_clock_test(dut):
-    """Start clock sequence"""
-    cocotb.start_soon(Clock(dut.clk_i, CLK_PERIOD_NS, units="ns").start())
-    await Timer(5 * CLK_PERIOD_NS, units="ns")
+    """Clock gen"""
+    await Timer(100, unit="ns")
+    cocotb.start_soon(Clock(dut.clk_i, CLK_PERIOD_NS, unit="ns").start())
+    await Timer(10, unit="ns")
 
 async def init_dut(dut):
     """Drive known reset/default values to clear Xs before testing."""

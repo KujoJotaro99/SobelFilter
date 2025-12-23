@@ -10,7 +10,7 @@ sys.stderr.flush()
 
 import cocotb
 from cocotb.clock import Clock
-from cocotb.triggers import RisingEdge, FallingEdge, Timer
+from cocotb.triggers import FallingEdge, Timer
 
 CLK_PERIOD_NS = 10
 
@@ -105,7 +105,6 @@ class TestManager:
             while self.checked < self.expected_outputs:
                 await FallingEdge(self.handshake.dut.clk_i)
                 self.input.drive(self.handshake)
-                await RisingEdge(self.handshake.dut.clk_i)
 
                 if self.handshake.output_accepted():
                     gx_out, gy_out = self.handshake.output_value()
@@ -142,9 +141,11 @@ class HandshakeManager:
 
 # unit tests
 
-async def clock_test(dut):
+async def counter_clock_test(dut):
+    """Clock gen"""
+    await Timer(100, unit="ns")
     cocotb.start_soon(Clock(dut.clk_i, CLK_PERIOD_NS, unit="ns").start())
-    await Timer(5 * CLK_PERIOD_NS, unit="ns")
+    await Timer(10, unit="ns")
 
 async def reset_test(dut):
     dut.rstn_i.value = 0
@@ -159,7 +160,7 @@ async def reset_test(dut):
 # all zeroes
 @cocotb.test()
 async def single_zeroes_test(dut):
-    await clock_test(dut)
+    await counter_clock_test(dut)
     await reset_test(dut)
     width = int(dut.DEPTH_P.value)
     height = 4 * width
@@ -170,7 +171,7 @@ async def single_zeroes_test(dut):
 # all ones
 @cocotb.test()
 async def single_ones_test(dut):
-    await clock_test(dut)
+    await counter_clock_test(dut)
     await reset_test(dut)
     width = int(dut.DEPTH_P.value)
     height = 4 * width
@@ -181,7 +182,7 @@ async def single_ones_test(dut):
 # impulse
 @cocotb.test()
 async def single_impulse_test(dut):
-    await clock_test(dut)
+    await counter_clock_test(dut)
     await reset_test(dut)
     width = int(dut.DEPTH_P.value)
     height = 4 * width
@@ -193,7 +194,7 @@ async def single_impulse_test(dut):
 # alternate
 @cocotb.test()
 async def single_alternate_test(dut):
-    await clock_test(dut)
+    await counter_clock_test(dut)
     await reset_test(dut)
     width = int(dut.DEPTH_P.value)
     height = 4 * width
@@ -206,7 +207,7 @@ async def single_alternate_test(dut):
 # random
 @cocotb.test()
 async def single_random_test(dut):
-    await clock_test(dut)
+    await counter_clock_test(dut)
     await reset_test(dut)
     width = int(dut.DEPTH_P.value)
     height = 4 * width
@@ -217,7 +218,7 @@ async def single_random_test(dut):
 
 @cocotb.test()
 async def single_image_test(dut):
-    await clock_test(dut)
+    await counter_clock_test(dut)
     await reset_test(dut)
     width = int(dut.DEPTH_P.value)
     img_path = Path(__file__).resolve().parents[2] / "jupyter" / "car.jpg"
