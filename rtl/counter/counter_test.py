@@ -1,4 +1,4 @@
-"""coverage reset, load, up/down, enable, saturate"""
+"""coverage reset, up/down, enable, wrap"""
 import random
 
 import cocotb
@@ -18,11 +18,6 @@ class ModelManager:
         self.mask = (1 << self.width) - 1
 
         try:
-            self.saturate = int(dut.SATURATE_P.value)
-        except Exception:
-            self.saturate = 0
-
-        try:
             self.max_val = int(dut.MAX_VAL_P.value) & self.mask
         except Exception:
             self.max_val = self.mask
@@ -33,29 +28,20 @@ class ModelManager:
         self.count = int(rstn_data) & self.mask
 
     def run(self, input):
-        en, load, data, up, down = input
+        en, up, down = input
         en = 1 if en else 0
-        load = 1 if load else 0
         up = 1 if up else 0
         down = 1 if down else 0
-        data = int(data) & self.mask
 
         if en:
-            if load:
-                if self.saturate:
-                    self.count = min(data, self.max_val)
-                else:
-                    self.count = data
-            elif up and (not down):
-                if self.saturate:
-                    if self.count != self.max_val:
-                        self.count = (self.count + 1) & self.mask
+            if up and (not down):
+                if self.count == self.max_val:
+                    self.count = 0
                 else:
                     self.count = (self.count + 1) & self.mask
             elif down and (not up):
-                if self.saturate:
-                    if self.count != 0:
-                        self.count = (self.count - 1) & self.mask
+                if self.count == 0:
+                    self.count = self.max_val
                 else:
                     self.count = (self.count - 1) & self.mask
 
@@ -75,7 +61,7 @@ class InputManager:
         if not self.valid and self.has_next():
             self.current = self.data[self.idx]
             self.valid = True
-        handshake.drive(self.valid, self.current if self.valid else (1, 0, 0, 0, 0))
+        handshake.drive(self.valid, self.current if self.valid else (1, 0, 0))
 
     def accept(self):
         if self.valid:
@@ -128,7 +114,6 @@ class TestManager:
                 self.input.drive(self.handshake)
         finally:
             self.handshake.dut.en_i.value = 0
-            self.handshake.dut.load_i.value = 0
             self.handshake.dut.up_i.value = 0
             self.handshake.dut.down_i.value = 0
 
@@ -138,12 +123,10 @@ class HandshakeManager:
         self.last_valid = False
 
     def drive(self, valid, data):
-        en, load, data_i, up, down = data
+        en, up, down = data
         self.last_valid = bool(valid)
 
         self.dut.en_i.value = 1 if en else 0
-        self.dut.load_i.value = 1 if load else 0
-        self.dut.data_i.value = int(data_i)
         self.dut.up_i.value = 1 if up else 0
         self.dut.down_i.value = 1 if down else 0
 
@@ -171,10 +154,8 @@ async def init_dut(dut):
     dut.rstn_i.value = 0
     dut.rstn_data_i.value = 0
     dut.en_i.value = 1
-    dut.load_i.value = 0
     dut.up_i.value = 0
     dut.down_i.value = 0
-    dut.data_i.value = 0
     await FallingEdge(dut.clk_i)
     await FallingEdge(dut.clk_i)
     await FallingEdge(dut.clk_i)
@@ -193,15 +174,12 @@ async def test_counter_stream(dut):
     stream = []
     for _ in range(300):
         en = 1
-        load = 1 if (random.randint(0, 15) == 0) else 0
-        data = random.randint(0, (1 << width) - 1)
         up = 0
         down = 0
-        if not load:
-            r = random.randint(0, 2)
-            up = 1 if r == 1 else 0
-            down = 1 if r == 2 else 0
-        stream.append((en, load, data, up, down))
+        r = random.randint(0, 2)
+        up = 1 if r == 1 else 0
+        down = 1 if r == 2 else 0
+        stream.append((en, up, down))
 
     env = TestManager(dut, stream)
     await env.run()

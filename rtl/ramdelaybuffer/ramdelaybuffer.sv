@@ -16,9 +16,6 @@ module ramdelaybuffer #(
     output logic [WIDTH_P-1:0] data_a_o,
     output logic [WIDTH_P-1:0] data_b_o
 );
-    localparam int RD_RST_A_P = DELAY_P - DELAY_A_P;
-    localparam int RD_RST_B_P = DELAY_P - DELAY_B_P;
-
     initial begin
         if (DELAY_A_P > DELAY_P) begin
             $fatal(1, "DELAY_A_P (%0d) must be <= DELAY_P (%0d)", DELAY_A_P, DELAY_P);
@@ -34,48 +31,39 @@ module ramdelaybuffer #(
 
     counter #(
         .WIDTH_P($clog2(DELAY_P+1)),
-        .MAX_VAL_P(DELAY_P),
-        .SATURATE_P(0)
+        .MAX_VAL_P(DELAY_P)
     ) wr_ptr_counter (
         .clk_i(clk_i),
         .rstn_i(rstn_i),
-        .rstn_data_i($clog2(DELAY_P+1)'(DELAY_P)),
-        .data_i($clog2(DELAY_P+1)'(0)),
+        .rstn_data_i(0),
         .up_i(valid_i & ready_o),
         .down_i(1'b0),
-        .load_i((valid_i & ready_o) && (wr_addr == $clog2(DELAY_P+1)'(DELAY_P))),
         .en_i(1'b1),
         .count_o(wr_addr)
     );
 
     counter #(
         .WIDTH_P($clog2(DELAY_P+1)),
-        .MAX_VAL_P(DELAY_P),
-        .SATURATE_P(0)
+        .MAX_VAL_P(DELAY_P)
     ) rd_ptr_counter_a (
         .clk_i(clk_i),
         .rstn_i(rstn_i),
-        .rstn_data_i($clog2(DELAY_P+1)'(RD_RST_A_P)),
-        .data_i($clog2(DELAY_P+1)'(0)),
+        .rstn_data_i(1),
         .up_i(valid_i & ready_o),
         .down_i(1'b0),
-        .load_i((valid_i & ready_o) && (rd_addr_a == $clog2(DELAY_P+1)'(DELAY_P))),
         .en_i(1'b1),
         .count_o(rd_addr_a)
     );
 
     counter #(
         .WIDTH_P($clog2(DELAY_P+1)),
-        .MAX_VAL_P(DELAY_P),
-        .SATURATE_P(0)
+        .MAX_VAL_P(DELAY_P)
     ) rd_ptr_counter_b (
         .clk_i(clk_i),
         .rstn_i(rstn_i),
-        .rstn_data_i($clog2(DELAY_P+1)'(RD_RST_B_P)),
-        .data_i($clog2(DELAY_P+1)'(0)),
+        .rstn_data_i(1),
         .up_i(valid_i & ready_o),
         .down_i(1'b0),
-        .load_i((valid_i & ready_o) && (rd_addr_b == $clog2(DELAY_P+1)'(DELAY_P))),
         .en_i(1'b1),
         .count_o(rd_addr_b)
     );

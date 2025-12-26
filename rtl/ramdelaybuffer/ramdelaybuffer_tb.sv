@@ -69,14 +69,14 @@ module ramdelaybuffer_tb;
         logic [WIDTH_P-1:0] exp_val;
         begin
             hist_sz = history.size();
-            if (hist_sz > DELAY_A_P) begin
-                exp_val = history[hist_sz-1-DELAY_A_P];
+            if (hist_sz > DELAY_P) begin
+                exp_val = history[hist_sz-1-DELAY_P];
                 if (data_a_o !== exp_val) begin
                     $fatal(1, "Port A mismatch got %0d exp %0d at hist_sz %0d", data_a_o, exp_val, hist_sz);
                 end
             end
-            if (hist_sz > DELAY_B_P) begin
-                exp_val = history[hist_sz-1-DELAY_B_P];
+            if (hist_sz > DELAY_P) begin
+                exp_val = history[hist_sz-1-DELAY_P];
                 if (data_b_o !== exp_val) begin
                     $fatal(1, "Port B mismatch got %0d exp %0d at hist_sz %0d", data_b_o, exp_val, hist_sz);
                 end
@@ -130,11 +130,11 @@ module ramdelaybuffer_tb;
             for (int i = 0; i < (TOTAL + DELAY_P); i++) begin
                 word = (i < TOTAL) ? sent[i] : '0;
                 push_word(word);
-                if ((i >= DELAY_A_P) && ((i - DELAY_A_P) < TOTAL)) begin
+                if ((i >= DELAY_P) && ((i - DELAY_P) < TOTAL)) begin
                     observed_a[obs_idx_a] = data_a_o;
                     obs_idx_a++;
                 end
-                if ((i >= DELAY_B_P) && ((i - DELAY_B_P) < TOTAL)) begin
+                if ((i >= DELAY_P) && ((i - DELAY_P) < TOTAL)) begin
                     observed_b[obs_idx_b] = data_b_o;
                     obs_idx_b++;
                 end

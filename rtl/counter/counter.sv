@@ -2,16 +2,13 @@
 
 module counter #(
     parameter int WIDTH_P = 32,
-    parameter int MAX_VAL_P = 128,
-    parameter bit SATURATE_P = 0
+    parameter int MAX_VAL_P = 128
 ) (
     input logic [0:0] clk_i,
     input logic [0:0] rstn_i,
     input logic [WIDTH_P-1:0] rstn_data_i,
-    input logic [WIDTH_P-1:0] data_i,
     input logic [0:0] up_i,
     input logic [0:0] down_i,
-    input logic [0:0] load_i,
     input logic [0:0] en_i,
     output logic [WIDTH_P-1:0] count_o
 );
@@ -28,7 +25,7 @@ module counter #(
     generate
         for (i = 0; i < WIDTH_P; i++) begin : gen_carry
             // if carry of wire is high, then toggle
-            assign count_w[i] = load_i ? data_i[i] : toggle_w[i] ? ~count_l[i] : count_l[i];
+            assign count_w[i] = toggle_w[i] ? ~count_l[i] : count_l[i];
         end
     endgenerate
 
@@ -40,33 +37,25 @@ module counter #(
         end
     endgenerate
 
-    generate
-        if (SATURATE_P) begin : sat_gen
-            always_ff @(posedge clk_i) begin
-                if (!rstn_i) begin
-                    count_l <= rstn_data_i;
-                end else if (en_i) begin
-                    if (load_i) begin
-                        count_l <= (data_i > MAX_VAL_P[WIDTH_P-1:0]) ? MAX_VAL_P[WIDTH_P-1:0] : data_i;
-                    end else if (up_i && !down_i) begin
-                        if (count_l != MAX_VAL_P[WIDTH_P-1:0])
-                            count_l <= count_w;
-                    end else if (down_i && !up_i) begin
-                        if (count_l != '0)
-                            count_l <= count_w;
-                    end
+    always_ff @(posedge clk_i) begin
+        if (!rstn_i) begin
+            count_l <= rstn_data_i;
+        end else if (en_i) begin
+            if (up_i && !down_i) begin
+                if (count_l == MAX_VAL_P[WIDTH_P-1:0]) begin
+                    count_l <= '0;
+                end else begin
+                    count_l <= count_w;
                 end
-            end
-        end else begin : roll_gen
-            always_ff @(posedge clk_i) begin
-                if (!rstn_i) begin
-                    count_l <= rstn_data_i;
-                end else if (en_i) begin
+            end else if (down_i && !up_i) begin
+                if (count_l == '0) begin
+                    count_l <= MAX_VAL_P[WIDTH_P-1:0];
+                end else begin
                     count_l <= count_w;
                 end
             end
         end
-    endgenerate
+    end
 
     assign count_o = count_l;
 

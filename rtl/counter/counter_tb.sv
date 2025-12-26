@@ -3,31 +3,25 @@
 module counter_tb;
 
     localparam int WIDTH_P = 8;
-    localparam int SATURATE_P = 1;
     localparam int MAX_VAL_P = 128;
 
     logic [0:0] clk_i;
     logic [0:0] rstn_i;
     logic [WIDTH_P-1:0] rstn_data_i;
-    logic [WIDTH_P-1:0] data_i;
     logic [0:0] up_i;
     logic [0:0] down_i;
-    logic [0:0] load_i;
     logic [0:0] en_i;
     logic [WIDTH_P-1:0] count_o;
 
     counter #(
         .WIDTH_P(WIDTH_P),
-        .SATURATE_P(SATURATE_P),
         .MAX_VAL_P(MAX_VAL_P)
     ) dut (
         .clk_i(clk_i),
         .rstn_i(rstn_i),
         .rstn_data_i(rstn_data_i),
-        .data_i(data_i),
         .up_i(up_i),
         .down_i(down_i),
-        .load_i(load_i),
         .en_i(en_i),
         .count_o(count_o)
     );
@@ -40,37 +34,21 @@ module counter_tb;
             rstn_i = 0;
             rstn_data_i = '0;
             en_i = 1;
-            load_i = 0;
             up_i = 0;
             down_i = 0;
-            data_i = '0;
             repeat (2) @(negedge clk_i);
             rstn_i = 1;
             @(negedge clk_i);
         end
     endtask
 
-    task automatic check_load(input int val);
-        logic [WIDTH_P-1:0] exp;
-        begin
-            exp = val > MAX_VAL_P ? MAX_VAL_P : val;
-            @(negedge clk_i);
-            load_i = 1;
-            data_i = val[WIDTH_P-1:0];
-            up_i = 0;
-            down_i = 0;
-            @(negedge clk_i);
-            @(negedge clk_i);
-            load_i = 0;
-            @(negedge clk_i);
-            if (count_o !== exp) $fatal(1, "Load mismatch got %0d exp %0d", count_o, exp);
-        end
-    endtask
-
     task automatic check_increment;
         logic [WIDTH_P-1:0] exp;
         begin
-            check_load(0);
+            rstn_i = 0;
+            rstn_data_i = '0;
+            @(negedge clk_i);
+            rstn_i = 1;
             @(negedge clk_i);
             up_i = 1;
             down_i = 0;
@@ -79,14 +57,17 @@ module counter_tb;
                 @(negedge clk_i);
                 if (count_o !== exp) $fatal(1, "Increment step %0d got %0d exp %0d", i, count_o, exp);
             end
-            check_load(MAX_VAL_P);
+            rstn_i = 0;
+            rstn_data_i = MAX_VAL_P[WIDTH_P-1:0];
+            up_i = 0;
+            down_i = 0;
+            @(negedge clk_i);
+            rstn_i = 1;
             @(negedge clk_i);
             up_i = 1;
             down_i = 0;
             @(negedge clk_i);
-            if (count_o !== MAX_VAL_P[WIDTH_P-1:0]) $fatal(1, "Saturate increment mismatch got %0d exp %0d", count_o, MAX_VAL_P);
-            @(negedge clk_i);
-            if (count_o !== MAX_VAL_P[WIDTH_P-1:0]) $fatal(1, "Saturate hold mismatch got %0d exp %0d", count_o, MAX_VAL_P);
+            if (count_o !== '0) $fatal(1, "Wrap increment mismatch got %0d exp 0", count_o);
             up_i = 0;
         end
     endtask
@@ -94,7 +75,10 @@ module counter_tb;
     task automatic check_decrement;
         logic [WIDTH_P-1:0] exp;
         begin
-            check_load(5);
+            rstn_i = 0;
+            rstn_data_i = 5;
+            @(negedge clk_i);
+            rstn_i = 1;
             @(negedge clk_i);
             up_i = 0;
             down_i = 1;
@@ -104,18 +88,16 @@ module counter_tb;
                 if (count_o !== exp) $fatal(1, "Decrement step %0d got %0d exp %0d", i, count_o, exp);
             end
             @(negedge clk_i);
-            if (count_o !== '0) $fatal(1, "Decrement underflow expected 0 got %0d", count_o);
+            if (count_o !== MAX_VAL_P[WIDTH_P-1:0]) $fatal(1, "Wrap decrement mismatch got %0d exp %0d", count_o, MAX_VAL_P);
             down_i = 0;
         end
     endtask
 
     initial begin
         $dumpfile("dump.vcd");
-        $dumpvars();
+        $dumpvars(0, counter_tb);
         reset_dut();
         rstn_data_i = '0;
-        check_load(42);
-        check_load(MAX_VAL_P + 10);
         check_increment();
         check_decrement();
         $display("counter_tb passed");

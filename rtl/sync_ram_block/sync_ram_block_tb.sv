@@ -201,7 +201,7 @@ module sync_ram_block_tb;
 
     initial begin
         $dumpfile("dump.vcd");
-        $dumpvars();
+        $dumpvars(0, sync_ram_block_tb);
         reset_dut();
         check_single();
         check_boundary();
