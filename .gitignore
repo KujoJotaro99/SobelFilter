@@ -26,6 +26,9 @@ syn/icebreaker/build/
 .DS_Store
 Thumbs.db
 
+# Docker
+docker-compose.yml
+
 # Cocotb
 results.xml
 
@@ -52,3 +55,4 @@ venv/
 
 # Misc
 .env
+run.sh
