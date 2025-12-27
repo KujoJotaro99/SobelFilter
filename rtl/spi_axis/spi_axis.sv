@@ -3,16 +3,18 @@ module spi_axis #(
     parameter int TID_W = 1,
     parameter int TDEST_W = 1,
     parameter int TUSER_W = 1,
-    parameter logic [7:0] RX_ADDR_P = 8'h00, // i dont have the addresses 
+    parameter logic [7:0] RX_ADDR_P = 8'h05, // i dont have the addresses 
     parameter logic [7:0] IRQ_ADDR_P = 8'h00,
-    parameter int IRQ_RRDY_BIT_P = 3,
-    parameter bit IRQ_CLEAR_EN_P = 0
+    parameter int IRQ_RRDY_BIT_P = 3
 ) (
     input logic clk_i, // core clock
     input logic rstn_i, // async active low reset
 
-    input logic si_i, // incoming data from slave
+    input logic mi_i, // incoming data from slave
     output logic scko_o, // generated serial clock
+    output logic sckoe_o, // output enable for serial clock
+    output logic mcsno0_o, // chip select for target 0
+    output logic mcsnoe0_o, // output enable for target 0
     output logic [DATA_W-1:0] tdata_o, // stream payload
     output logic [DATA_W/8-1:0] tkeep_o, // byte qualifier
     output logic [DATA_W/8-1:0] tstrb_o, // byte strobe
@@ -30,10 +32,14 @@ module spi_axis #(
     } spi_state_t
 
     spi_state_t curr_state, next_state; // state tracker
-    logic [0:0] IRQRRDY_o;
+    logic [0:0] IRQRRDY_l;
     logic [0:0] spiirq_o;
     logic [0:0] sbacko_o;
     logic [7:0] sbdato_o;
+    logic [7:0] sbdati_o;
+    logic [7:0] sbadri_i;
+    logic [0:0] sbstbi_i;
+    logic [0:0] sbrwi_i;
 
     // fsm
     always_ff @(posedge clk_i) begin
@@ -55,31 +61,93 @@ module spi_axis #(
             end
 
             CHECK_IRQ: begin
-                // if read and IRQRRDY bit high 
-                if (sbacko_o & IRQRRDY_o) begin
+                // if ack and IRQRRDY bit high 
+                if (sbacko_o & IRQRRDY_l) begin
                     next_state = READ_DATA;
-                end else if (sback) begin
+                end else if (sback_o) begin
                     next_state = IDLE;
                 end
             end
 
             READ_DATA: begin
-                // 
+                // stream out
+                if (sbacko_o) begin
+                    next_state = WRITE_DATA;
+                end
             end
+
+            WRITE_DATA: begin
+                if (tready_i & tvalid_o) begin
+                    next_state = IDLE;
+                end
+            end
+
+            default: next_state = IDLE;
+
         endcase
     end
 
     always_ff @(posedge clk_i) begin
         if (!rstn_i) begin
+            IRQRRDY_l <= '0;
+            sbstbi_i <= '0;
+            sbdato_o <= '0;
+            sbdati_i <= '0;
+            sbadri_i <= '0;
+            tdata_o <= '0;
+            tvalid_o <= '0;
+        end else begin
+            case (curr_state)
+                IDLE: begin
+                    tvalid_o <= 1'b0;
+                end
+
+                // read spiirq register to check if valid data present in the rx register
+                CHECK_IRQ: begin
+                    if (!sbstbi_i & !sbacko_o) begin
+                        sbadri_i <= IRQ_ADDR_P;
+                        sbstbi_i <= 1'b1;
+                        sbrwi_i <= 1'b1;
+                    end else if (sbacko_o) begin
+                        IRQRRDY_l <= sbdato_o[IRQ_RRDY_BIT_P];
+                    end
+                end
+
+                // read rx register to collect valid data
+                READ_DATA: begin
+                    if (!sbstbi_i & !sbacko_o) begin
+                        sbadri_i <= RX_ADDR_P;
+                        sbstbi_i <= 1'b1;
+                        sbrwi_i <= 1'b1;
+                    end else if (sbacko_o) begin
+                        tdata_o <= sbdato_o;
+                        tvalid_o <= 1'b1;
+                    end
+                end
+
+                // reset valid for next rx transaction
+                WRITE_DATA: begin
+                    if (tvalid_o && tready_i) begin
+                        tvalid_o <= 1'b0;
+                    end
+                end
+
+                default: next_state = IDLE;
+            endcase
         end
     end
 
+    assign tkeep_o = {(DATA_W/8){1'b1}};
+    assign tstrb_o = {(DATA_W/8){1'b1}};
+    assign tlast_o  = 1'b0;
+
     SB_SPI 
     #(
+        .BUS_ADDR74()
     ) u_sb_spi (
         .SBCLKI(clk_i), // system bus clock
         .SBRWI(), // read or write selection, read only
-        .SBSTBI(sbstb), // register transaction strobe
+        .SBSTBI(sbstbi_i), // register transaction strobe
 
         .SBADRI7(), // register address bit 7
         .SBADRI6(), // register address bit 6
@@ -99,37 +167,37 @@ module spi_axis #(
         .SBDATI1(), // write data bit 1
         .SBDATI0(), // write data bit 0
 
-        .MI(), // incoming data for master mode
-        .SI(), // incoming data for slave mode
-        .SCKI(), // external serial clock
-        .SCSNI(), // external chip select
+        .MI(mi_i), // incoming data for master mode
+        .SI(1'b0), // unused in master mode
+        .SCKI(1'b0), // unused in master mode
+        .SCSNI(1'b1), // inactive in master mode
 
         .SBDATO7(sbdato_o[7]), // read data bit 7
         .SBDATO6(sbdato_o[6]), // read data bit 6
         .SBDATO5(sbdato_o[5]), // read data bit 5
         .SBDATO4(sbdato_o[4]), // read data bit 4
-        .SBDATO3(sbdato_o[3]), // read data bit 3 IRQRRDY_o
+        .SBDATO3(sbdato_o[3]), // read data bit 3 IRQRRDY_l
         .SBDATO2(sbdato_o[2]), // read data bit 2
         .SBDATO1(sbdato_o[1]), // read data bit 1
         .SBDATO0(sbdato_o[0]), // read data bit 0
 
         .SBACKO(sbacko_o), // transaction complete
-        .SPIIRQ(spiirq_o), // interrupt request, 12.10 https://www.latticesemi.com/-/media/LatticeSemi/Documents/ApplicationNotes/AD2/FPGA-TN-02011-1-8-Advanced-iCE40-I2C-and-SPI-Hardened-IP-User-Guide.ashx?document_id=50117
+        .SPIIRQ(spiirq_o), // interrupt request 12.10 https://www.latticesemi.com/-/media/LatticeSemi/Documents/ApplicationNotes/AD2/FPGA-TN-02011-1-8-Advanced-iCE40-I2C-and-SPI-Hardened-IP-User-Guide.ashx?document_id=50117
         .SPIWKUP(), // wakeup request
-        .SO(), // serial data output
-        .SOE(), // serial data output enable
-        .MO(), // master data output
-        .MOE(), // master data output enable
-        .SCKO(), // serial clock output
-        .SCKOE(), // serial clock output enable
-        .MCSNO3(), // chip select 3 output
-        .MCSNO2(), // chip select 2 output
-        .MCSNO1(), // chip select 1 output
-        .MCSNO0(), // chip select 0 output
-        .MCSNOE3(), // chip select 3 enable
-        .MCSNOE2(), // chip select 2 enable
-        .MCSNOE1(), // chip select 1 enable
-        .MCSNOE0() // chip select 0 enable
+        .SO(), // unused
+        .SOE(), // unused
+        .MO(), // unused
+        .MOE(), // unused
+        .SCKO(scko_o), // serial clock output
+        .SCKOE(sckoe_o), // serial clock output enable
+        .MCSNO3(), // unused
+        .MCSNO2(), // unused
+        .MCSNO1(), // unused
+        .MCSNO0(mcsno0_o), // chip select 0 output
+        .MCSNOE3(), // unused
+        .MCSNOE2(), // unused
+        .MCSNOE1(), // unused
+        .MCSNOE0(mcsnoe0_o) // chip select 0 enable
     );
 
 endmodule
