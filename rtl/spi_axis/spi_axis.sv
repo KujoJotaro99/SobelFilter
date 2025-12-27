@@ -9,12 +9,8 @@ module spi_axis #(
 ) (
     input logic clk_i, // core clock
     input logic rstn_i, // async active low reset
-
     input logic mi_i, // incoming data from slave
     output logic scko_o, // generated serial clock
-    output logic sckoe_o, // output enable for serial clock
-    output logic mcsno0_o, // chip select for target 0
-    output logic mcsnoe0_o, // output enable for target 0
     output logic [DATA_W-1:0] tdata_o, // stream payload
     output logic [DATA_W/8-1:0] tkeep_o, // byte qualifier
     output logic [DATA_W/8-1:0] tstrb_o, // byte strobe
@@ -24,19 +20,20 @@ module spi_axis #(
 );
 
     // fsm for spi macro interfacing 
-    typedeg enum logic [1:0] {
+    typedef enum logic [2:0] {
         IDLE, 
         CHECK_IRQ,
         READ_DATA,
-        WRITE_DATA
-    } spi_state_t
+        STREAM_OUT,
+        CLEAR_IRQ
+    } spi_state_t;
 
     spi_state_t curr_state, next_state; // state tracker
     logic [0:0] IRQRRDY_l;
     logic [0:0] spiirq_o;
     logic [0:0] sbacko_o;
     logic [7:0] sbdato_o;
-    logic [7:0] sbdati_o;
+    logic [7:0] sbdati_i;
     logic [7:0] sbadri_i;
     logic [0:0] sbstbi_i;
     logic [0:0] sbrwi_i;
@@ -61,23 +58,35 @@ module spi_axis #(
             end
 
             CHECK_IRQ: begin
-                // if ack and IRQRRDY bit high 
-                if (sbacko_o & IRQRRDY_l) begin
-                    next_state = READ_DATA;
-                end else if (sback_o) begin
-                    next_state = IDLE;
+                if (sbacko_o) begin
+                    // completed register to signal valid rx
+                    if (IRQRRDY_l) begin
+                        next_state = READ_DATA;
+                    // interrupt but no valid data unknown so just clear and wait for next interrupt
+                    end else begin
+                        next_state = CLEAR_IRQ;
+                    end
+                end else begin
+                    // waiting for register to signal valid rx
+                    next_state = CHECK_IRQ;
                 end
             end
 
             READ_DATA: begin
                 // stream out
                 if (sbacko_o) begin
-                    next_state = WRITE_DATA;
+                    next_state = STREAM_OUT;
                 end
             end
 
-            WRITE_DATA: begin
+            STREAM_OUT: begin
                 if (tready_i & tvalid_o) begin
+                    next_state = IDLE;
+                end
+            end
+
+            CLEAR_IRQ: begin
+                if (sbacko_o) begin
                     next_state = IDLE;
                 end
             end
@@ -94,9 +103,15 @@ module spi_axis #(
             sbdato_o <= '0;
             sbdati_i <= '0;
             sbadri_i <= '0;
+            sbrwi_i <= 1'b1;
             tdata_o <= '0;
             tvalid_o <= '0;
         end else begin
+
+            if (sbacko_o) begin
+                sbstbi_i <= 1'b0;
+            end
+
             case (curr_state)
                 IDLE: begin
                     tvalid_o <= 1'b0;
@@ -113,6 +128,15 @@ module spi_axis #(
                     end
                 end
 
+                CLEAR_IRQ: begin
+                    if (!sbstbi_i & !sbacko_o) begin
+                        sbadri_i <= IRQ_ADDR_P;
+                        sbdati_i <= 8'hFF;
+                        sbstbi_i <= 1'b1;
+                        sbrwi_i <= 1'b0;
+                    end
+                end
+
                 // read rx register to collect valid data
                 READ_DATA: begin
                     if (!sbstbi_i & !sbacko_o) begin
@@ -126,7 +150,7 @@ module spi_axis #(
                 end
 
                 // reset valid for next rx transaction
-                WRITE_DATA: begin
+                STREAM_OUT: begin
                     if (tvalid_o && tready_i) begin
                         tvalid_o <= 1'b0;
                     end
@@ -146,31 +170,22 @@ module spi_axis #(
         .BUS_ADDR74()
     ) u_sb_spi (
         .SBCLKI(clk_i), // system bus clock
-        .SBRWI(), // read or write selection, read only
+        .SBRWI(sbrwi_i), // read or write selection, read only
         .SBSTBI(sbstbi_i), // register transaction strobe
 
-        .SBADRI7(), // register address bit 7
-        .SBADRI6(), // register address bit 6
-        .SBADRI5(), // register address bit 5
-        .SBADRI4(), // register address bit 4
-        .SBADRI3(), // register address bit 3
-        .SBADRI2(), // register address bit 2
-        .SBADRI1(), // register address bit 1
-        .SBADRI0(), // register address bit 0
-
-        .SBDATI7(), // write data bit 7
-        .SBDATI6(), // write data bit 6
-        .SBDATI5(), // write data bit 5
-        .SBDATI4(), // write data bit 4
-        .SBDATI3(), // write data bit 3
-        .SBDATI2(), // write data bit 2
-        .SBDATI1(), // write data bit 1
-        .SBDATI0(), // write data bit 0
+        .SBADRI7(sbadri_i[7]), // register address bit 7
+        .SBADRI6(sbadri_i[6]), // register address bit 6
+        .SBADRI5(sbadri_i[5]), // register address bit 5
+        .SBADRI4(sbadri_i[4]), // register address bit 4
+        .SBADRI3(sbadri_i[3]), // register address bit 3
+        .SBADRI2(sbadri_i[2]), // register address bit 2
+        .SBADRI1(sbadri_i[1]), // register address bit 1
+        .SBADRI0(sbadri_i[0]), // register address bit 0
 
         .MI(mi_i), // incoming data for master mode
         .SI(1'b0), // unused in master mode
         .SCKI(1'b0), // unused in master mode
-        .SCSNI(1'b1), // inactive in master mode
+        .SCSNI(1'b1), // unused in master mode
 
         .SBDATO7(sbdato_o[7]), // read data bit 7
         .SBDATO6(sbdato_o[6]), // read data bit 6
@@ -184,20 +199,32 @@ module spi_axis #(
         .SBACKO(sbacko_o), // transaction complete
         .SPIIRQ(spiirq_o), // interrupt request 12.10 https://www.latticesemi.com/-/media/LatticeSemi/Documents/ApplicationNotes/AD2/FPGA-TN-02011-1-8-Advanced-iCE40-I2C-and-SPI-Hardened-IP-User-Guide.ashx?document_id=50117
         .SPIWKUP(), // wakeup request
+
+        .SCKO(scko_o), // serial clock output
+        .SCKOE(sckoe_o), // serial clock output enable
+
+        .MCSNO0(mcsno0_o), // chip select 0 output
+        .MCSNOE0(mcsnoe0_o), // chip select 0 enable
+
+        .SBDATI7(sbdati_i[7]), // write data bit 7
+        .SBDATI6(sbdati_i[6]), // write data bit 6
+        .SBDATI5(sbdati_i[5]), // write data bit 5
+        .SBDATI4(sbdati_i[4]), // write data bit 4
+        .SBDATI3(sbdati_i[3]), // write data bit 3
+        .SBDATI2(sbdati_i[2]), // write data bit 2
+        .SBDATI1(sbdati_i[1]), // write data bit 1
+        .SBDATI0(sbdati_i[0]), // write data bit 0
+
         .SO(), // unused
         .SOE(), // unused
         .MO(), // unused
         .MOE(), // unused
-        .SCKO(scko_o), // serial clock output
-        .SCKOE(sckoe_o), // serial clock output enable
         .MCSNO3(), // unused
         .MCSNO2(), // unused
         .MCSNO1(), // unused
-        .MCSNO0(mcsno0_o), // chip select 0 output
         .MCSNOE3(), // unused
         .MCSNOE2(), // unused
-        .MCSNOE1(), // unused
-        .MCSNOE0(mcsnoe0_o) // chip select 0 enable
+        .MCSNOE1() // unused
     );
 
 endmodule
