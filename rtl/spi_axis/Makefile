@@ -23,7 +23,7 @@ WAVES ?= 1
 TB_SV := spi_axis_tb.sv
 
 ifneq ($(filter sv,$(MAKECMDGOALS)),)
-    # skip cocotb include for pure SystemVerilog run
+    # skip cocotb i jsut include for pure SystemVerilog run
 else
 include $(shell cocotb-config --makefile)/Makefile.sim
 endif
