@@ -3,14 +3,17 @@ module spi_axis #(
     parameter int TID_W = 1,
     parameter int TDEST_W = 1,
     parameter int TUSER_W = 1,
-    parameter logic [7:0] RX_ADDR_P = 8'h05, // i dont have the addresses 
-    parameter logic [7:0] IRQ_ADDR_P = 8'h00,
+    parameter logic [7:0] RX_ADDR_P = 8'h0E, // SPIRXDR address
+    parameter logic [7:0] IRQ_ADDR_P = 8'h06, // SPIIRQ address
     parameter int IRQ_RRDY_BIT_P = 3
 ) (
     input logic clk_i, // core clock
     input logic rstn_i, // async active low reset
     input logic mi_i, // incoming data from slave
     output logic scko_o, // generated serial clock
+    output logic sckoe_o, // enable
+    output logic mcsno0_o, // master chip select output
+    output logic mcsnoe0_o, // enable
     output logic [DATA_W-1:0] tdata_o, // stream payload
     output logic [DATA_W/8-1:0] tkeep_o, // byte qualifier
     output logic [DATA_W/8-1:0] tstrb_o, // byte strobe
@@ -29,14 +32,13 @@ module spi_axis #(
     } spi_state_t;
 
     spi_state_t curr_state, next_state; // state tracker
-    logic [0:0] IRQRRDY_l;
-    logic [0:0] spiirq_o;
-    logic [0:0] sbacko_o;
+    logic spiirq_o;
+    logic sbacko_o;
     logic [7:0] sbdato_o;
     logic [7:0] sbdati_i;
     logic [7:0] sbadri_i;
-    logic [0:0] sbstbi_i;
-    logic [0:0] sbrwi_i;
+    logic sbstbi_i;
+    logic sbrwi_i;
 
     // fsm
     always_ff @(posedge clk_i) begin
@@ -49,6 +51,10 @@ module spi_axis #(
 
     always_comb begin
         next_state = curr_state;
+        sbadri_i = 8'h00;
+        sbdati_i = 8'h00;
+        sbstbi_i = 1'b0;
+        sbrwi_i = 1'b0;
         
         case (curr_state)
             IDLE: begin
@@ -58,21 +64,30 @@ module spi_axis #(
             end
 
             CHECK_IRQ: begin
+                if (!sbacko_o) begin
+                    sbadri_i = IRQ_ADDR_P;
+                    sbstbi_i = 1'b1;
+                    sbrwi_i = 1'b0;
+                end
+                
                 if (sbacko_o) begin
                     // completed register to signal valid rx
-                    if (IRQRRDY_l) begin
+                    if (sbdato_o[IRQ_RRDY_BIT_P]) begin
                         next_state = READ_DATA;
                     // interrupt but no valid data unknown so just clear and wait for next interrupt
                     end else begin
                         next_state = CLEAR_IRQ;
                     end
-                end else begin
-                    // waiting for register to signal valid rx
-                    next_state = CHECK_IRQ;
                 end
             end
 
             READ_DATA: begin
+                if (!sbacko_o) begin
+                    sbadri_i = RX_ADDR_P;
+                    sbstbi_i = 1'b1;
+                    sbrwi_i = 1'b0;
+                end
+                
                 // stream out
                 if (sbacko_o) begin
                     next_state = STREAM_OUT;
@@ -86,78 +101,37 @@ module spi_axis #(
             end
 
             CLEAR_IRQ: begin
+                if (!sbacko_o) begin
+                    sbadri_i = IRQ_ADDR_P;
+                    sbdati_i = (8'h1 << IRQ_RRDY_BIT_P);
+                    sbstbi_i = 1'b1;
+                    sbrwi_i = 1'b1;
+                end
+                
                 if (sbacko_o) begin
                     next_state = IDLE;
                 end
             end
 
             default: next_state = IDLE;
-
         endcase
     end
 
     always_ff @(posedge clk_i) begin
         if (!rstn_i) begin
-            IRQRRDY_l <= '0;
-            sbstbi_i <= '0;
-            sbdato_o <= '0;
-            sbdati_i <= '0;
-            sbadri_i <= '0;
-            sbrwi_i <= 1'b1;
             tdata_o <= '0;
-            tvalid_o <= '0;
+            tvalid_o <= 1'b0;
         end else begin
-
-            if (sbacko_o) begin
-                sbstbi_i <= 1'b0;
+            // read rx register to collect valid data
+            if (curr_state == READ_DATA && sbacko_o) begin
+                tdata_o <= sbdato_o;
+                tvalid_o <= 1'b1;
             end
-
-            case (curr_state)
-                IDLE: begin
-                    tvalid_o <= 1'b0;
-                end
-
-                // read spiirq register to check if valid data present in the rx register
-                CHECK_IRQ: begin
-                    if (!sbstbi_i & !sbacko_o) begin
-                        sbadri_i <= IRQ_ADDR_P;
-                        sbstbi_i <= 1'b1;
-                        sbrwi_i <= 1'b1;
-                    end else if (sbacko_o) begin
-                        IRQRRDY_l <= sbdato_o[IRQ_RRDY_BIT_P];
-                    end
-                end
-
-                CLEAR_IRQ: begin
-                    if (!sbstbi_i & !sbacko_o) begin
-                        sbadri_i <= IRQ_ADDR_P;
-                        sbdati_i <= 8'hFF;
-                        sbstbi_i <= 1'b1;
-                        sbrwi_i <= 1'b0;
-                    end
-                end
-
-                // read rx register to collect valid data
-                READ_DATA: begin
-                    if (!sbstbi_i & !sbacko_o) begin
-                        sbadri_i <= RX_ADDR_P;
-                        sbstbi_i <= 1'b1;
-                        sbrwi_i <= 1'b1;
-                    end else if (sbacko_o) begin
-                        tdata_o <= sbdato_o;
-                        tvalid_o <= 1'b1;
-                    end
-                end
-
-                // reset valid for next rx transaction
-                STREAM_OUT: begin
-                    if (tvalid_o && tready_i) begin
-                        tvalid_o <= 1'b0;
-                    end
-                end
-
-                default: next_state = IDLE;
-            endcase
+            
+            // reset valid for next rx transaction
+            if (curr_state == STREAM_OUT && tvalid_o && tready_i) begin
+                tvalid_o <= 1'b0;
+            end
         end
     end
 
