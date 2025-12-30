@@ -90,7 +90,6 @@ module conv2d #(
         endcase
     endfunction
 
-
     logic signed [(2*WIDTH_P)-1:0] gx_sum [0:8];
     logic signed [(2*WIDTH_P)-1:0] gy_sum [0:8];
 

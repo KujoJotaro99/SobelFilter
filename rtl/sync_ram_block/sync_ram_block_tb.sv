@@ -92,9 +92,7 @@ module sync_ram_block_tb;
         end
     endtask
 
-    task automatic read_dual(input int addr_a, input int addr_b,
-                             output logic [WIDTH_P-1:0] val_a,
-                             output logic [WIDTH_P-1:0] val_b);
+    task automatic read_dual(input int addr_a, input int addr_b, output logic [WIDTH_P-1:0] val_a, output logic [WIDTH_P-1:0] val_b);
         begin
             @(negedge clk_i);
             rd_en_a_i = 1;
