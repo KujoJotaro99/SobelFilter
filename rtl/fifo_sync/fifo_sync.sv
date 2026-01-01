@@ -4,7 +4,8 @@ module fifo_sync #(
     parameter WIDTH_P = 8,
     parameter DEPTH_P = 16
 ) (
-    input logic [0:0] clk_i, 
+    input logic [0:0] pclk_i, 
+    input logic [0:0] cclk_i,
     input logic [0:0] rstn_i,
     input logic [WIDTH_P-1:0] data_i,
     input logic [0:0] valid_i, 
@@ -15,13 +16,13 @@ module fifo_sync #(
 );
 
     logic [$clog2(DEPTH_P):0] wr_ptr_l, rd_ptr_l, rd_ptr_next_w;
-    logic [WIDTH_P-1:0] data_o_bypass_l, data_o_l;
-    logic [0:0] bypass_w;
+    logic [$clog2(DEPTH_P):0] wr_ptr_gray, wr_ptr_gray_sync, wr_ptr_sync;
+    logic [$clog2(DEPTH_P):0] rd_ptr_gray, rd_ptr_gray_sync, rd_ptr_sync;
+
 
     // full empty and bypass logic
-    assign ready_o = ~((wr_ptr_l[$clog2(DEPTH_P)] != rd_ptr_l[$clog2(DEPTH_P)]) && (wr_ptr_l[$clog2(DEPTH_P)-1:0] == rd_ptr_l[$clog2(DEPTH_P)-1:0])); // not full
-    assign valid_o = (wr_ptr_l[$clog2(DEPTH_P):0] != rd_ptr_l[$clog2(DEPTH_P):0]); // not empty
-    assign bypass_w = (wr_ptr_l[$clog2(DEPTH_P):0] == rd_ptr_next_w[$clog2(DEPTH_P):0]);
+    assign valid_o = (wr_ptr_sync[$clog2(DEPTH_P):0] != rd_ptr_l[$clog2(DEPTH_P):0]); // not empty
+    assign ready_o = ~((wr_ptr_l[$clog2(DEPTH_P)] != rd_ptr_sync[$clog2(DEPTH_P)]) && (wr_ptr_l[$clog2(DEPTH_P)-1:0] == rd_ptr_sync[$clog2(DEPTH_P)-1:0])); // not full
 
     // next ptr logic
     always_comb begin
@@ -35,7 +36,7 @@ module fifo_sync #(
     end
 
     // curr ptr logic
-    always_ff @(posedge clk_i) begin
+    always_ff @(posedge pclk_i) begin
         if (!rstn_i) begin
             wr_ptr_l <= '0;
         end else if (valid_i & ready_o) begin
@@ -43,7 +44,7 @@ module fifo_sync #(
         end
     end
 
-    always_ff @(posedge clk_i) begin
+    always_ff @(posedge cclk_i) begin
         if (!rstn_i) begin
             rd_ptr_l <= '0;
         end else if (valid_o & ready_i) begin
@@ -51,32 +52,28 @@ module fifo_sync #(
         end
     end
 
-    always_ff @(posedge clk_i) begin
-        if (!rstn_i) begin
-            data_o_bypass_l <= '0;
-        end else if (valid_i & ready_o) begin
-            data_o_bypass_l <= data_i;
-        end
-    end
-
-    // sync ram
-    sync_ram_block #(
+    async_ram_1r1w #(
         .WIDTH_P(WIDTH_P),
         .DEPTH_P(DEPTH_P)
-    ) sync_fifo_ram (
-        .clk_i(clk_i),
-        .rstn_i(rstn_i),
-        .data_i(data_i),
-        .wr_addr_i(wr_ptr_l[$clog2(DEPTH_P)-1:0]),
-        .rd_addr_a_i(rd_ptr_next_w[$clog2(DEPTH_P)-1:0]),
-        .rd_addr_b_i('0),
+    ) fifo_ram (
+        .wr_clk_i(pclk_i),
+        .wr_rstn_i(rstn_i),
         .wr_en_i(valid_i & ready_o),
-        .rd_en_a_i('1),
-        .rd_en_b_i(1'b0),
-        .data_a_o(data_o_l),
-        .data_b_o()
+        .wr_data_i(data_i),
+        .wr_addr_i(wr_ptr_l[$clog2(DEPTH_P)-1:0]),
+        .rd_clk_i(cclk_i),
+        .rd_rstn_i(rstn_i),
+        .rd_en_i(1'b1),
+        .rd_addr_i(rd_ptr_next_w[$clog2(DEPTH_P)-1:0]),
+        .rd_data_o(data_o)
     );
 
-    assign data_o = bypass_w ? data_o_bypass_l : data_o_l;
+    Nbin2gray #(.N($clog2(DEPTH_P)+1)) wrgray (.bin_i(wr_ptr_l), .gray_o(wr_ptr_gray));
+    sync2 #(.width($clog2(DEPTH_P)+1)) wr_to_rd (.rstn_i(rstn_i), .clk_sync_i(cclk_i), .sync_i(wr_ptr_gray), .sync_o(wr_ptr_gray_sync));
+    Ngray2bin #(.N($clog2(DEPTH_P)+1)) wrsync (.bin_o(wr_ptr_sync), .gray_i(wr_ptr_gray_sync));
+
+    Nbin2gray #(.N($clog2(DEPTH_P)+1)) rdgray (.bin_i(rd_ptr_l), .gray_o(rd_ptr_gray));
+    sync2 #(.width($clog2(DEPTH_P)+1)) rd_to_wr (.rstn_i(rstn_i), .clk_sync_i(pclk_i), .sync_i(rd_ptr_gray), .sync_o(rd_ptr_gray_sync));
+    Ngray2bin #(.N($clog2(DEPTH_P)+1)) rdsync (.bin_o(rd_ptr_sync), .gray_i(rd_ptr_gray_sync));
 
 endmodule

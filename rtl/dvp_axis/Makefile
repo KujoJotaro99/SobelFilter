@@ -12,7 +12,7 @@ VERILOG_SOURCES := $(RTL_SOURCES)
 TOPLEVEL := $(shell python3 -c "import json; \
     print(json.load(open('$(FILELIST_JSON)'))['top'])")
 	
-MODULE := spi_axis_test
+MODULE := dvp_axis_test
 
 COCOTB_LOG_LEVEL ?= INFO
 
@@ -20,7 +20,7 @@ COMPILE_ARGS += -g2012
 
 WAVES ?= 1
 
-TB_SV := spi_axis_tb.sv
+TB_SV := dvp_axis_tb.sv
 
 ifneq ($(filter sv,$(MAKECMDGOALS)),)
     # skip cocotb i jsut include for pure SystemVerilog run
@@ -49,5 +49,5 @@ python: clean
 
 .PHONY: sv
 sv: clean
-	iverilog $(COMPILE_ARGS) -s spi_axis_tb -o sim_sv $(VERILOG_SOURCES) $(TB_SV)
+	iverilog $(COMPILE_ARGS) -s dvp_axis_tb -o sim_sv $(VERILOG_SOURCES) $(TB_SV)
 	vvp sim_sv

@@ -112,8 +112,7 @@ class TestManager:
                         self.scoreboard.update_expected(inp)
 
                 if self.handshake.output_accepted():
-                    gray_out = self.handshake.output_value()
-                    if self.scoreboard.check_output(gray_out):
+                    if self.scoreboard.check_output(self.handshake.output_value()):
                         self.checked += 1
 
                 self.input.drive(self.handshake)

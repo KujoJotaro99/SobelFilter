@@ -32,7 +32,7 @@ module magnitude #(
     end
 
     elastic #(
-        .WIDTH_P(2*WIDTH_P)
+        .WIDTH_P(WIDTH_P)
     ) magnitude_elastic (
         .clk_i(clk_i),
         .rstn_i(rstn_i),
