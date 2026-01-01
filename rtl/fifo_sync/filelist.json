@@ -2,9 +2,6 @@
   "top": "fifo_sync",
   "files": [
     "fifo_sync.sv",
-    "../../submodules/imports/async_ram_block.sv",
-    "../../submodules/imports/sync2.sv",
-    "../../submodules/imports/Nbin2gray.sv",
-    "../../submodules/imports/Ngray2bin.sv"
+    "../../rtl/sync_ram_blocksync_ram_block.sv"
   ]
 }

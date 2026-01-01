@@ -2,12 +2,11 @@
 
 module sobel #(
     parameter int WIDTH_P = 8,
-    parameter int LINE_W_P = 16,
-    parameter int FRAME_H_P = 16,
+    parameter int LINE_W_P = 640,
+    parameter int FRAME_H_P = 480,
     parameter int FIFO_DEPTH_P = 512
 ) (
     input logic mclk_i, // camera reference clock in
-    input logic sys_clk_i, // system clock in
     input logic rstn_i, // async active low reset
     input logic cam_pclk_i, // pixel clock from camera
     input logic cam_hsync_i, // line valid from camera
@@ -65,9 +64,9 @@ module sobel #(
         .FEEDBACK_PATH("SIMPLE"),
         .PLLOUT_SELECT("GENCLK"),
         .DIVR(4'b0000),
-        .DIVF(7'b0000000),
-        .DIVQ(3'b000),
-        .FILTER_RANGE(3'b000)
+        .DIVF(7'b0111111),
+        .DIVQ(3'b101),
+        .FILTER_RANGE(3'b001)
     ) cam_pll (
         .PACKAGEPIN(mclk_i),
         .PLLOUTCORE(pll_clk),
@@ -75,7 +74,7 @@ module sobel #(
         .EXTFEEDBACK(1'b0),
         .DYNAMICDELAY(8'b00000000),
         .LOCK(),
-        .BYPASS(1'b1),
+        .BYPASS(1'b0),
         .RESETB(rstn_i),
         .LATCHINPUTVALUE(1'b0),
         .SDO(),
@@ -151,8 +150,7 @@ module sobel #(
         .WIDTH_P(WIDTH_P),
         .DEPTH_P(FIFO_DEPTH_P)
     ) cam_fifo (
-        .pclk_i(cam_pclk_i),
-        .cclk_i(sys_clk_i),
+        .clk_i(cam_pclk_i),
         .rstn_i(rstn_i),
         .data_i(dvp_data),
         .valid_i(dvp_valid),
@@ -166,7 +164,7 @@ module sobel #(
         .WIDTH_P(WIDTH_P),
         .DEPTH_P(LINE_W_P)
     ) sobel_conv2d (
-        .clk_i(sys_clk_i),
+        .clk_i(cam_pclk_i),
         .rstn_i(rstn_i),
         .valid_i(fifo_valid),
         .ready_i(mag_ready),
@@ -183,7 +181,7 @@ module sobel #(
     magnitude #(
         .WIDTH_P(WIDTH_P)
     ) sobel_magnitude (
-        .clk_i(sys_clk_i),
+        .clk_i(cam_pclk_i),
         .rstn_i(rstn_i),
         .valid_i(conv_valid),
         .ready_i(tready_i),
@@ -194,7 +192,7 @@ module sobel #(
         .mag_o(mag_data)
     );
 
-    always_ff @(posedge sys_clk_i) begin
+    always_ff @(posedge cam_pclk_i) begin
         if (!rstn_i) begin
             x_cnt <= '0;
             y_cnt <= '0;
