@@ -3,8 +3,8 @@
 module ramdelaybuffer #(
     parameter WIDTH_P = 8,
     parameter DELAY_P = 12,
-    parameter DELAY_A_P = DELAY_P,
-    parameter DELAY_B_P = DELAY_P
+    parameter DELAY_A_P = 4,
+    parameter DELAY_B_P = 5
 ) (
     input logic [0:0] clk_i,
     input logic [0:0] rstn_i,
@@ -17,6 +17,12 @@ module ramdelaybuffer #(
     output logic [WIDTH_P-1:0] data_b_o
 );
     initial begin
+        if (DELAY_A_P < 1) begin
+            $fatal(1, "DELAY_A_P (%0d) must be >= 1", DELAY_A_P);
+        end
+        if (DELAY_B_P < 1) begin
+            $fatal(1, "DELAY_B_P (%0d) must be >= 1", DELAY_B_P);
+        end
         if (DELAY_A_P > DELAY_P) begin
             $fatal(1, "DELAY_A_P (%0d) must be <= DELAY_P (%0d)", DELAY_A_P, DELAY_P);
         end
@@ -35,7 +41,7 @@ module ramdelaybuffer #(
     ) wr_ptr_counter (
         .clk_i(clk_i),
         .rstn_i(rstn_i),
-        .rstn_data_i(0),
+        .rstn_data_i(($clog2(DELAY_P+1))'(0)),
         .up_i(valid_i & ready_o),
         .down_i(1'b0),
         .en_i(1'b1),
@@ -48,7 +54,7 @@ module ramdelaybuffer #(
     ) rd_ptr_counter_a (
         .clk_i(clk_i),
         .rstn_i(rstn_i),
-        .rstn_data_i(1),
+        .rstn_data_i(($clog2(DELAY_P+1))'((DELAY_P + 1) - DELAY_A_P)),
         .up_i(valid_i & ready_o),
         .down_i(1'b0),
         .en_i(1'b1),
@@ -61,7 +67,7 @@ module ramdelaybuffer #(
     ) rd_ptr_counter_b (
         .clk_i(clk_i),
         .rstn_i(rstn_i),
-        .rstn_data_i(1),
+        .rstn_data_i(($clog2(DELAY_P+1))'((DELAY_P + 1) - DELAY_B_P)),
         .up_i(valid_i & ready_o),
         .down_i(1'b0),
         .en_i(1'b1),

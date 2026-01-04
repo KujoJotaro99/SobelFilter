@@ -4,13 +4,13 @@ module conv2d #(
     parameter WIDTH_P = 8,
     parameter DEPTH_P = 16
 )(
-    input  logic clk_i,
-    input  logic rstn_i,
-    input  logic valid_i,
-    input  logic ready_i,
-    input  logic [WIDTH_P-1:0] data_i,
-    output logic valid_o,
-    output logic ready_o,
+    input logic [0:0] clk_i,
+    input logic [0:0] rstn_i,
+    input logic [0:0] valid_i,
+    input logic [0:0] ready_i,
+    input logic [WIDTH_P-1:0] data_i,
+    output logic [0:0] valid_o,
+    output logic [0:0] ready_o,
     output logic signed [(2*WIDTH_P)-1:0] gx_o,
     output logic signed [(2*WIDTH_P)-1:0] gy_o
 );

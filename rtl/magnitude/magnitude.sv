@@ -7,13 +7,13 @@ module magnitude #(
     input logic [0:0] rstn_i,
     input logic [0:0] valid_i,
     input logic [0:0] ready_i,
-    input logic [WIDTH_P-1:0] gx_i,
-    input logic [WIDTH_P-1:0] gy_i,
+    input logic [2*WIDTH_P-1:0] gx_i,
+    input logic [2*WIDTH_P-1:0] gy_i,
     output logic [0:0] valid_o,
     output logic [0:0] ready_o,
     output logic [2*WIDTH_P-1:0] mag_o
 );
-    logic [2*WIDTH_P-1:0] mag_w;
+    logic [2*WIDTH_P:0] mag_w;
 
     // note: check dsp synth inderence 
     // sqrt(x^2 + y^2) for x > y > 0
@@ -32,11 +32,11 @@ module magnitude #(
     end
 
     elastic #(
-        .WIDTH_P(WIDTH_P)
+        .WIDTH_P(2*WIDTH_P)
     ) magnitude_elastic (
         .clk_i(clk_i),
         .rstn_i(rstn_i),
-        .data_i(mag_w),
+        .data_i(mag_w[2*WIDTH_P-1:0]),
         .valid_i(valid_i),
         .ready_o(ready_o),
         .valid_o(valid_o),

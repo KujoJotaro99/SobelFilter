@@ -10,14 +10,16 @@ CLK_PERIOD_NS = 10
 
 class ModelManager:
     def __init__(self, dut):
-        self.delay = int(dut.DELAY_P.value)
-        self.buf = np.full((self.delay + 1,), np.nan)
+        self.delay_p = int(dut.DELAY_P.value)
+        self.delay_a = int(dut.DELAY_A_P.value)
+        self.delay_b = int(dut.DELAY_B_P.value)
+        self.buf = np.full((self.delay_p + 1,), np.nan)
 
     def run(self, input):
         self.buf = np.roll(self.buf, -1)
         self.buf[-1] = int(input)
-        exp_a = self.buf[-1 - self.delay]
-        exp_b = self.buf[-1 - self.delay]
+        exp_a = self.buf[-1 - self.delay_a]
+        exp_b = self.buf[-1 - self.delay_b]
         exp_a = None if np.isnan(exp_a) else int(exp_a)
         exp_b = None if np.isnan(exp_b) else int(exp_b)
         return (exp_a, exp_b)
@@ -89,7 +91,7 @@ class TestManager:
         self.model = ModelManager(dut)
         self.scoreboard = ScoreManager(self.model)
         inputs = sum(1 for x in stream if x is not None)
-        self.expected_outputs = max(0, inputs - self.model.delay)
+        self.expected_outputs = max(0, inputs - max(self.model.delay_a, self.model.delay_b))
         self.checked = 0
 
     async def run(self):
@@ -167,23 +169,27 @@ async def test_ramdelay_buffer_stream(dut):
     await counter_clock_test(dut)
     width = int(dut.WIDTH_P.value)
     delay = int(dut.DELAY_P.value)
+    delay_a = int(dut.DELAY_A_P.value)
+    delay_b = int(dut.DELAY_B_P.value)
     await init_dut(dut)
 
     stream = [random.randint(0, (1 << width) - 1) for _ in range((2 * delay) + 50)]
     env = TestManager(dut, stream)
     await env.run()
-    assert env.checked == max(0, len(stream) - delay)
+    assert env.checked == max(0, len(stream) - max(delay_a, delay_b))
 
 @cocotb.test(skip=False)
 async def test_ramdelay_buffer_same_delay(dut):
-    """check behavior when DELAY_B_P is same as DELAY_P"""
+    """check behavior when DELAY_A_P and DELAY_B_P are the same"""
     await counter_clock_test(dut)
     width = int(dut.WIDTH_P.value)
-    delay = int(dut.DELAY_P.value)
+    delay_a = int(dut.DELAY_A_P.value)
+    delay_b = int(dut.DELAY_B_P.value)
     await init_dut(dut)
 
-    stream = [random.randint(0, (1 << width) - 1) for _ in range((2 * delay) + 50)]
+    stream = [random.randint(0, (1 << width) - 1) for _ in range((2 * max(delay_a, delay_b)) + 50)]
     env = TestManager(dut, stream)
     await env.run()
-    assert env.checked == max(0, len(stream) - delay)
-    assert env.scoreboard.checked_a == env.scoreboard.checked_b
+    assert env.checked == max(0, len(stream) - max(delay_a, delay_b))
+    if delay_a == delay_b:
+        assert env.scoreboard.checked_a == env.scoreboard.checked_b
