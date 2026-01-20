@@ -19,26 +19,26 @@ module elastic #(
     input [0:0] ready_i
 );
 
-  logic [WIDTH_P - 1:0] data_o_l;
+  logic [WIDTH_P - 1:0] data_o_reg;
   always_ff @(posedge clk_i) begin
     if (!rstn_i) begin
-      data_o_l <= 0;
+      data_o_reg <= 0;
     end else if (ready_o) begin
-      data_o_l <= data_i;
+      data_o_reg <= data_i;
     end
   end
 
-  logic [0:0] valid_o_l;
+  logic [0:0] valid_o_reg;
   always_ff @(posedge clk_i) begin
     if (!rstn_i) begin
-      valid_o_l <= 0;
+      valid_o_reg <= 0;
     end else if (ready_o) begin
-      valid_o_l <= ready_o & valid_i;
+      valid_o_reg <= ready_o & valid_i;
     end
   end
 
   assign ready_o = ~valid_o | ready_i;
-  assign valid_o = valid_o_l;
-  assign data_o = data_o_l;
+  assign valid_o = valid_o_reg;
+  assign data_o = data_o_reg;
 
 endmodule

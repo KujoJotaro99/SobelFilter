@@ -5,15 +5,15 @@ module sync_ram_block #(
     parameter DEPTH_P = 128, 
     parameter filename_p = ""
 ) (
-    input logic [0:0] clk_i,
-    input logic [0:0] rstn_i,
+    input logic clk_i,
+    input logic rstn_i,
     input logic [WIDTH_P-1:0] data_i,
     input logic [$clog2(DEPTH_P)-1:0] wr_addr_i,
     input logic [$clog2(DEPTH_P)-1:0] rd_addr_a_i,
     input logic [$clog2(DEPTH_P)-1:0] rd_addr_b_i,
-    input logic [0:0] wr_en_i,
-    input logic [0:0] rd_en_a_i,
-    input logic [0:0] rd_en_b_i,
+    input logic wr_en_i,
+    input logic rd_en_a_i,
+    input logic rd_en_b_i,
     output logic [WIDTH_P-1:0] data_a_o,
     output logic [WIDTH_P-1:0] data_b_o
 );

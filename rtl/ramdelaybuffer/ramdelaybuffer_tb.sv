@@ -69,14 +69,14 @@ module ramdelaybuffer_tb;
         logic [WIDTH_P-1:0] exp_val;
         begin
             hist_sz = history.size();
-            if (hist_sz > DELAY_A_P) begin
-                exp_val = history[hist_sz-1-DELAY_A_P];
+            if (hist_sz > DELAY_P) begin
+                exp_val = history[hist_sz-1-DELAY_P];
                 if (data_a_o !== exp_val) begin
                     $fatal(1, "Port A mismatch got %0d exp %0d at hist_sz %0d", data_a_o, exp_val, hist_sz);
                 end
             end
-            if (hist_sz > DELAY_B_P) begin
-                exp_val = history[hist_sz-1-DELAY_B_P];
+            if (hist_sz > DELAY_P) begin
+                exp_val = history[hist_sz-1-DELAY_P];
                 if (data_b_o !== exp_val) begin
                     $fatal(1, "Port B mismatch got %0d exp %0d at hist_sz %0d", data_b_o, exp_val, hist_sz);
                 end
@@ -103,18 +103,11 @@ module ramdelaybuffer_tb;
             if (token == '0) token = 'd1;
 
             push_word(token);
-            for (int i = 0; i < DELAY_A_P; i++) begin
+            for (int i = 0; i < DELAY_P; i++) begin
                 push_word('0);
             end
 
-            if (data_a_o !== token) $fatal(1, "Delayed A value mismatch got %0d exp %0d", data_a_o, token);
-
-            reset_dut();
-            push_word(token);
-            for (int i = 0; i < DELAY_B_P; i++) begin
-                push_word('0);
-            end
-            if (data_b_o !== token) $fatal(1, "Delayed B value mismatch got %0d exp %0d", data_b_o, token);
+            if (data_a_o !== token) $fatal(1, "Delayed value mismatch got %0d exp %0d", data_a_o, token);
         end
     endtask
 
@@ -137,11 +130,11 @@ module ramdelaybuffer_tb;
             for (int i = 0; i < (TOTAL + DELAY_P); i++) begin
                 word = (i < TOTAL) ? sent[i] : '0;
                 push_word(word);
-                if ((i >= DELAY_A_P) && ((i - DELAY_A_P) < TOTAL)) begin
+                if ((i >= DELAY_P) && ((i - DELAY_P) < TOTAL)) begin
                     observed_a[obs_idx_a] = data_a_o;
                     obs_idx_a++;
                 end
-                if ((i >= DELAY_B_P) && ((i - DELAY_B_P) < TOTAL)) begin
+                if ((i >= DELAY_P) && ((i - DELAY_P) < TOTAL)) begin
                     observed_b[obs_idx_b] = data_b_o;
                     obs_idx_b++;
                 end
@@ -184,8 +177,8 @@ module ramdelaybuffer_tb;
                 hs++;
                 push_word(word);
 
-                if (hs > DELAY_A_P) begin
-                    exp = hist[hs - 1 - DELAY_A_P];
+                if (hs > DELAY_P) begin
+                    exp = hist[hs - 1 - DELAY_P];
                     if (data_a_o !== exp) $fatal(1, "Gapped sequence mismatch got %0d exp %0d", data_a_o, exp);
                 end
             end
@@ -195,8 +188,8 @@ module ramdelaybuffer_tb;
                 hist[hs] = '0;
                 hs++;
                 push_word('0);
-                if (hs > DELAY_A_P) begin
-                    exp = hist[hs - 1 - DELAY_A_P];
+                if (hs > DELAY_P) begin
+                    exp = hist[hs - 1 - DELAY_P];
                     if (data_a_o !== exp) $fatal(1, "Flush mismatch got %0d exp %0d", data_a_o, exp);
                 end
             end

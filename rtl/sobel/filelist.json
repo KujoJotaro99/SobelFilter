@@ -13,7 +13,6 @@
     "../i2c_fsm/i2c_fsm.sv",
     "../../submodules/imports/sync2.sv",
     "../../submodules/imports/elastic.sv",
-    "../../submodules/imports/sync2.sv",
     "../../submodules/imports/SB_I2C.sv",
     "../../submodules/imports/SB_MAC16.sv",
     "../../submodules/imports/SB_PLL40_PAD.sv"
