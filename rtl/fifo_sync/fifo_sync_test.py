@@ -1,3 +1,4 @@
+"""coverage reset hold, expected delay, pointer wraparound, valid deasserts"""
 import random
 import numpy as np
 from collections import deque
@@ -9,14 +10,17 @@ from cocotb.triggers import FallingEdge, Timer
 CLK_PERIOD_NS = 10
 
 class ModelManager:
+    """Reference FIFO queue model for stream ordering."""
     def __init__(self, dut):
         self.queue = deque()
 
     def run(self, input):
+        """Advance model state for one input and return expected output."""
         self.queue.append(int(input))
         return None
 
 class InputManager:
+    """Drives input stream into the DUT with a valid buffer."""
     def __init__(self, stream):
         self.data = list(stream)
         self.idx = 0
@@ -24,9 +28,11 @@ class InputManager:
         self.current = 0
 
     def has_next(self):
+        """Return True when more inputs remain."""
         return self.idx < len(self.data)
 
     def drive(self, handshake):
+        """Drive the current input and valid flag."""
         if not self.has_next():
             self.valid = False
             handshake.drive(False, 0)
@@ -42,6 +48,7 @@ class InputManager:
         handshake.drive(self.valid, self.current if self.valid else 0)
 
     def accept(self):
+        """Consume the current input after acceptance."""
         if self.valid:
             self.idx += 1
             self.valid = False
@@ -49,20 +56,24 @@ class InputManager:
         return None
 
 class ScoreManager:
+    """Tracks expected outputs and compares against DUT results."""
     def __init__(self, model):
         self.model = model
         self.pending = deque()
         self.checked = 0
 
     def update_expected(self, input):
+        """Queue expected outputs for a new input."""
         self.model.run(input)
 
     def check_output(self, output):
+        """Compare DUT output against expected values."""
         if output is None:
             return
         self.pending.append(int(output))
 
     def drain(self):
+        """Only for queue-based comparisons."""
         matched = False
         while self.model.queue and self.pending:
             exp = self.model.queue.popleft()
@@ -73,6 +84,7 @@ class ScoreManager:
         return matched
 
 class TestManager:
+    """Coordinates stimulus, model updates, and checks."""
     def __init__(self, dut, stream):
         self.handshake = HandshakeManager(dut)
         self.input = InputManager(stream)
@@ -85,6 +97,7 @@ class TestManager:
         self.out_stride = 1
 
     async def run(self):
+        """Main loop coordinating input and output checks."""
         try:
             self.handshake.dut.ready_i.value = 1
             self.input.drive(self.handshake)
@@ -97,6 +110,7 @@ class TestManager:
             self.handshake.dut.ready_i.value = 0
 
     async def drive_inputs(self):
+        """Drive inputs based on the stride configuration."""
         cycle = 0
         while self.input.has_next():
             await FallingEdge(self.handshake.dut.clk_i)
@@ -111,6 +125,7 @@ class TestManager:
                 self.handshake.dut.valid_i.value = 0
 
     async def consume_outputs(self):
+        """Consume outputs based on the stride configuration."""
         cycle = 0
         while self.scoreboard.checked < self.expected_outputs:
             await FallingEdge(self.handshake.dut.clk_i)
@@ -125,20 +140,25 @@ class TestManager:
                 self.checked = self.scoreboard.checked
 
 class HandshakeManager:
+    """Wraps DUT signal driving and sampling."""
     def __init__(self, dut):
         self.dut = dut
 
     def drive(self, valid, data):
+        """Drive DUT inputs for this cycle."""
         self.dut.valid_i.value = 1 if valid else 0
         self.dut.data_i.value = int(data)
 
     def input_accepted(self):
+        """Return True when input handshake succeeds."""
         return bool(self.dut.valid_i.value and self.dut.ready_o.value)
     
     def output_accepted(self):
+        """Return True when output handshake succeeds."""
         return bool(self.dut.valid_o.value and self.dut.ready_i.value)
 
     def output_value(self):
+        """Sample DUT outputs for comparison."""
         if not self.dut.data_o.value.is_resolvable:
             return None
         return int(self.dut.data_o.value)

@@ -1,3 +1,4 @@
+"""coverage reset hold, expected delay, pointer wraparound, valid deasserts"""
 import random
 import numpy as np
 from collections import deque
@@ -9,6 +10,7 @@ from cocotb.triggers import FallingEdge, Timer
 CLK_PERIOD_NS = 10
 
 class ModelManager:
+    """Reference dual-tap delay-line model for A/B outputs."""
     def __init__(self, dut):
         self.delay = int(dut.DELAY_P.value)
         self.delay_a = int(dut.DELAY_A_P.value)
@@ -16,6 +18,7 @@ class ModelManager:
         self.buf = np.full((self.delay + 1,), np.nan)
 
     def run(self, input):
+        """Advance model state for one input and return expected output."""
         self.buf = np.roll(self.buf, -1)
         self.buf[-1] = int(input)
         exp_a = self.buf[-1 - self.delay_a]
@@ -25,6 +28,7 @@ class ModelManager:
         return (exp_a, exp_b)
 
 class InputManager:
+    """Drives input stream into the DUT with a valid buffer."""
     def __init__(self, stream):
         self.data = list(stream)
         self.idx = 0
@@ -32,9 +36,11 @@ class InputManager:
         self.current = 0
 
     def has_next(self):
+        """Return True when more inputs remain."""
         return self.idx < len(self.data)
 
     def drive(self, handshake):
+        """Drive the current input and valid flag."""
         if not self.has_next():
             self.valid = False
             handshake.drive(False, 0)
@@ -50,6 +56,7 @@ class InputManager:
         handshake.drive(self.valid, self.current if self.valid else 0)
 
     def accept(self):
+        """Consume the current input after acceptance."""
         if self.valid:
             self.idx += 1
             self.valid = False
@@ -57,6 +64,7 @@ class InputManager:
         return None
 
 class ScoreManager:
+    """Tracks expected outputs and compares against DUT results."""
     def __init__(self, model):
         self.model = model
         self.pending_a = deque()
@@ -65,6 +73,7 @@ class ScoreManager:
         self.checked_b = 0
 
     def update_expected(self, input):
+        """Queue expected outputs for a new input."""
         exp_a, exp_b = self.model.run(input)
         if exp_a is not None:
             self.pending_a.append(exp_a)
@@ -72,6 +81,7 @@ class ScoreManager:
             self.pending_b.append(exp_b)
 
     def check_output(self, output):
+        """Compare DUT output against expected values."""
         if output is None:
             return False
         got_a, got_b = output
@@ -89,9 +99,11 @@ class ScoreManager:
         return matched
 
     def drain(self):
+        """Template hook for queue-based comparisons."""
         return False
 
 class TestManager:
+    """Coordinates stimulus, model updates, and checks."""
     def __init__(self, dut, stream):
         self.handshake = HandshakeManager(dut)
         self.input = InputManager(stream)
@@ -102,6 +114,7 @@ class TestManager:
         self.expected_b = max(0, inputs - self.model.delay_b)
 
     async def run(self):
+        """Main loop coordinating input and output checks."""
         try:
             self.input.drive(self.handshake)
             while (self.scoreboard.checked_a < self.expected_a) or (self.scoreboard.checked_b < self.expected_b):
@@ -121,21 +134,26 @@ class TestManager:
             self.handshake.dut.ready_i.value = 0
 
 class HandshakeManager:
+    """Wraps DUT signal driving and sampling."""
     def __init__(self, dut):
         self.dut = dut
 
     def drive(self, valid, data):
+        """Drive DUT inputs for this cycle."""
         self.dut.valid_i.value = 1 if valid else 0
         self.dut.data_i.value = int(data)
         self.dut.ready_i.value = 1
 
     def input_accepted(self):
+        """Return True when input handshake succeeds."""
         return bool(self.dut.valid_i.value and self.dut.ready_o.value)
     
     def output_accepted(self):
+        """Return True when output handshake succeeds."""
         return bool(self.dut.valid_o.value and self.dut.ready_i.value)
 
     def output_value(self):
+        """Sample DUT outputs for comparison."""
         got_a = None
         got_b = None
         if self.dut.data_a_o.value.is_resolvable:

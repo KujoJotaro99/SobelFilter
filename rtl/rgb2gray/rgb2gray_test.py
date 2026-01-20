@@ -1,3 +1,4 @@
+"""coverage reset, rgb2gray coefficient approximation, trying to implement uvm like test plan"""
 import numpy as np
 import cv2 as cv
 from pathlib import Path
@@ -16,17 +17,20 @@ CLK_PERIOD_NS = 10
 # drivers
 
 class ModelManager:
+    """Reference grayscale model using floating coefficients."""
     def __init__(self, dut):
         self.width = int(dut.WIDTH_P.value)
         self.frac = 8
 
     def run(self, input):
+        """Advance model state for one input and return expected output."""
         # input format [r, g, b]
         r, g, b = input
         gray_exp = r*0.299 + g*0.587 + b*0.114
         return int(gray_exp)
 
 class InputManager:
+    """Drives input stream into the DUT with a valid buffer."""
     def __init__(self, stream):
         self.data = stream.reshape(-1, 3)
         self.idx = 0
@@ -34,15 +38,18 @@ class InputManager:
         self.current = None
 
     def has_next(self):
+        """Return True when more inputs remain."""
         return self.idx < len(self.data)
 
     def drive(self, handshake):
+        """Drive the current input and valid flag."""
         if not self.valid and self.has_next():
             self.current = [int(x) for x in self.data[self.idx]]
             self.valid = True
         handshake.drive(self.valid, self.current if self.valid else [0, 0, 0])
 
     def accept(self):
+        """Consume the current input after acceptance."""
         if self.valid:
             self.idx += 1
             self.valid = False
@@ -50,6 +57,7 @@ class InputManager:
         return None
 
 class ScoreManager:
+    """Tracks expected outputs and compares against DUT results."""
     def __init__(self, model, expected_outputs, rms_threshold=10):
         self.model = model
         self.expected_outputs = expected_outputs
@@ -59,11 +67,13 @@ class ScoreManager:
         self.n = 0
 
     def update_expected(self, input):
+        """Queue expected outputs for a new input."""
         gray_exp = self.model.run(input)
         if gray_exp is not None:
             self.pending.append(gray_exp)
 
     def check_output(self, output):
+        """Compare DUT output against expected values."""
         gray_out = output
         if gray_out is None:
             return False
@@ -79,9 +89,11 @@ class ScoreManager:
         return True
 
     def drain(self):
+        """Only for queue-based comparisons."""
         return False
 
 class TestManager:
+    """Coordinates stimulus, model updates, and checks."""
     def __init__(self, dut, stream):
         self.handshake = HandshakeManager(dut)
 
@@ -95,6 +107,7 @@ class TestManager:
         self.out_stride = 1
 
     async def run(self):
+        """Main loop coordinating input and output checks."""
         try:
             self.input.drive(self.handshake)
             cycle = 0
@@ -126,22 +139,27 @@ class TestManager:
             self.handshake.dut.ready_i.value = 0
 
 class HandshakeManager:
+    """Wraps DUT signal driving and sampling."""
     def __init__(self, dut):
         self.dut = dut
 
     def drive(self, valid, data_rgb):
+        """Drive DUT inputs for this cycle."""
         self.dut.valid_i.value = 1 if valid else 0
         self.dut.red_i.value = int(data_rgb[0])
         self.dut.green_i.value = int(data_rgb[1])
         self.dut.blue_i.value = int(data_rgb[2])
 
     def input_accepted(self):
+        """Return True when input handshake succeeds."""
         return bool(self.dut.valid_i.value and self.dut.ready_o.value)
 
     def output_accepted(self):
+        """Return True when output handshake succeeds."""
         return bool(self.dut.valid_o.value and self.dut.ready_i.value)
 
     def output_value(self):
+        """Sample DUT outputs for comparison."""
         if not self.dut.gray_o.value.is_resolvable:
             return None
         return self.dut.gray_o.value.integer
@@ -149,10 +167,12 @@ class HandshakeManager:
 # unit tests
 
 async def clock_test(dut):
+    """Start the DUT clock."""
     cocotb.start_soon(Clock(dut.clk_i, CLK_PERIOD_NS, unit="ns").start())
     await Timer(5 * CLK_PERIOD_NS, unit="ns")
 
 async def reset_test(dut):
+    """Apply reset and drive default inputs."""
     dut.rstn_i.value = 0
     dut.valid_i.value = 0
     dut.ready_i.value = 0

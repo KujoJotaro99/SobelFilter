@@ -1,3 +1,4 @@
+"""Coverage: reset, long stream rd/wr, dual read sync ram block"""
 import random
 import numpy as np
 
@@ -10,11 +11,13 @@ CLK_PERIOD_NS = 10
 # drivers
 
 class ModelManager:
+    """Reference dual-read sync RAM model for expected reads."""
     def __init__(self, dut):
         self.depth = int(dut.DEPTH_P.value)
         self.mem = np.full((self.depth,), np.nan)
 
     def run(self, input):
+        """Advance model state for one input and return expected output."""
         wr_en, wr_addr, data, rd_en_a, rd_addr_a, rd_en_b, rd_addr_b = input
 
         exp_a = None
@@ -34,6 +37,7 @@ class ModelManager:
         return (exp_a, exp_b)
 
 class InputManager:
+    """Drives input stream into the DUT with a valid buffer."""
     def __init__(self, stream):
         self.data = list(stream)
         self.idx = 0
@@ -41,9 +45,11 @@ class InputManager:
         self.current = None
 
     def has_next(self):
+        """Return True when more inputs remain."""
         return self.idx < len(self.data)
 
     def drive(self, handshake):
+        """Drive the current input and valid flag."""
         if not self.has_next():
             self.valid = False
             handshake.drive(False, (0, 0, 0, 0, 0, 0, 0))
@@ -54,6 +60,7 @@ class InputManager:
         handshake.drive(self.valid, self.current if self.valid else (0, 0, 0, 0, 0, 0, 0))
 
     def accept(self):
+        """Consume the current input after acceptance."""
         if self.valid:
             self.idx += 1
             self.valid = False
@@ -61,11 +68,13 @@ class InputManager:
         return None
 
 class ScoreManager:
+    """Tracks expected outputs and compares against DUT results."""
     def __init__(self, model):
         self.model = model
         self.pending = None
 
     def update_expected(self, input):
+        """Queue expected outputs for a new input."""
         exp_a, exp_b = self.model.run(input)
         if (exp_a is not None) or (exp_b is not None):
             self.pending = (exp_a, exp_b)
@@ -73,6 +82,7 @@ class ScoreManager:
             self.pending = None
 
     def check_output(self, output):
+        """Compare DUT output against expected values."""
         if output is None:
             return False
         if self.pending is None:
@@ -91,9 +101,11 @@ class ScoreManager:
         return True
 
     def drain(self):
+        """Only for queue-based comparisons."""
         return False
 
 class TestManager:
+    """Coordinates stimulus, model updates, and checks."""
     def __init__(self, dut, stream):
         self.handshake = HandshakeManager(dut)
         self.input = InputManager(stream)
@@ -111,6 +123,7 @@ class TestManager:
                 self.expected_outputs += 1
 
     async def run(self):
+        """Main loop coordinating input and output checks."""
         try:
             self.input.drive(self.handshake)
             cycle = 0
@@ -137,10 +150,12 @@ class TestManager:
             self.handshake.dut.rd_en_b_i.value = 0
 
 class HandshakeManager:
+    """Wraps DUT signal driving and sampling."""
     def __init__(self, dut):
         self.dut = dut
 
     def drive(self, valid, data):
+        """Drive DUT inputs for this cycle."""
         wr_en, wr_addr, data_i, rd_en_a, rd_addr_a, rd_en_b, rd_addr_b = data
 
         self.dut.wr_en_i.value = 1 if (valid and wr_en) else 0
@@ -154,12 +169,15 @@ class HandshakeManager:
         self.dut.rd_addr_b_i.value = int(rd_addr_b)
 
     def input_accepted(self):
+        """Return True when input handshake succeeds."""
         return True
 
     def output_accepted(self):
+        """Return True when output handshake succeeds."""
         return bool(self.dut.rd_en_a_i.value or self.dut.rd_en_b_i.value)
 
     def output_value(self):
+        """Sample DUT outputs for comparison."""
         got_a = None if (not self.dut.data_a_o.value.is_resolvable) else int(self.dut.data_a_o.value)
         got_b = None if (not self.dut.data_b_o.value.is_resolvable) else int(self.dut.data_b_o.value)
         return (got_a, got_b)

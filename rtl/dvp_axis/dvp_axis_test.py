@@ -1,3 +1,4 @@
+"""coverage reset, line framing, expected latency"""
 import numpy as np
 import cv2 as cv
 from pathlib import Path
@@ -16,22 +17,27 @@ CLK_PERIOD_NS = 10
 # drivers
 
 class ModelManager:
+    """Reference pass-through model for framed DVP stream."""
     def __init__(self, dut):
         pass
 
     def run(self, input):
+        """Advance model state for one input and return expected output."""
         return input
 
 class InputManager:
+    """Drives input stream into the DUT with a valid buffer."""
     def __init__(self, stream):
         self.seq = stream
         self.idx = 0
         self.current = None
 
     def has_next(self):
+        """Return True when more inputs remain."""
         return self.idx < len(self.seq)
 
     def drive(self, handshake):
+        """Drive the current input and valid flag."""
         if self.has_next():
             hsync, data, vsync, last = self.seq[self.idx]
             self.current = (hsync, data, vsync, last)
@@ -41,6 +47,7 @@ class InputManager:
             handshake.drive(False, False, 0)
 
     def accept(self):
+        """Consume the current input after acceptance."""
         if self.current and self.current[0]:
             return (self.current[1], self.current[3])
         return None
@@ -50,6 +57,7 @@ class InputManager:
             self.idx += 1
 
 class ScoreManager:
+    """Tracks expected outputs and compares against DUT results."""
     def __init__(self, model, expected_outputs):
         self.model = model
         self.expected_outputs = expected_outputs
@@ -57,11 +65,13 @@ class ScoreManager:
         self.checked = 0
 
     def update_expected(self, input):
+        """Queue expected outputs for a new input."""
         exp = self.model.run(input)
         if exp is not None:
             self.pending.append(exp)
 
     def check_output(self, output):
+        """Compare DUT output against expected values."""
         if output is None:
             return False
         if not self.pending:
@@ -72,8 +82,13 @@ class ScoreManager:
         assert int(out_last) == int(exp_last), f"TLAST mismatch got {int(out_last)} exp {int(exp_last)}"
         self.checked += 1
         return True
+    
+    def drain(self):
+        """Only for queue-based comparisons."""
+        return False
 
 class TestManager:
+    """Coordinates stimulus, model updates, and checks."""
     def __init__(self, dut, stream):
         self.handshake = HandshakeManager(dut)
 
@@ -85,6 +100,7 @@ class TestManager:
         self.scoreboard = ScoreManager(self.model, self.expected_outputs)
 
     async def run(self):
+        """Main loop coordinating input and output checks."""
         try:
             self.input.drive(self.handshake)
             while self.checked < self.expected_outputs:
@@ -109,22 +125,27 @@ class TestManager:
             self.handshake.dut.tready_i.value = 0
 
 class HandshakeManager:
+    """Wraps DUT signal driving and sampling."""
     def __init__(self, dut):
         self.dut = dut
 
     def drive(self, hsync, vsync, data):
+        """Drive DUT inputs for this cycle."""
         self.dut.hsync_i.value = 1 if hsync else 0
         self.dut.vsync_i.value = 1 if vsync else 0
         self.dut.data_i.value = int(data)
         self.dut.tready_i.value = 1
 
     def input_accepted(self):
+        """Return True when input handshake succeeds."""
         return bool(self.dut.hsync_i.value)
 
     def output_accepted(self):
+        """Return True when output handshake succeeds."""
         return bool(self.dut.tvalid_o.value and self.dut.tready_i.value)
 
     def output_value(self):
+        """Sample DUT outputs for comparison."""
         if not self.dut.tdata_o.value.is_resolvable:
             return None
         if not self.dut.tlast_o.value.is_resolvable:
@@ -134,10 +155,12 @@ class HandshakeManager:
 # unit tests
 
 async def clock_test(dut):
+    """Start the DUT clock."""
     cocotb.start_soon(Clock(dut.pclk_i, CLK_PERIOD_NS, unit="ns").start())
     await Timer(5 * CLK_PERIOD_NS, unit="ns")
 
 async def reset_test(dut):
+    """Apply reset and drive default inputs."""
     dut.rstn_i.value = 0
     dut.hsync_i.value = 0
     dut.vsync_i.value = 0
@@ -150,6 +173,7 @@ async def reset_test(dut):
     await FallingEdge(dut.pclk_i)
 
 def build_sequence(img):
+    """Build a framed input sequence from an image."""
     height, width = img.shape
     seq = []
     for r in range(height):
