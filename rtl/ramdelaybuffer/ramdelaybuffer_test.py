@@ -1,4 +1,3 @@
-"""coverage reset hold, expected delay, pointer wraparound, valid deasserts"""
 import random
 import numpy as np
 from collections import deque
@@ -88,6 +87,9 @@ class ScoreManager:
             self.checked_b += 1
             matched = True
         return matched
+
+    def drain(self):
+        return False
 
 class TestManager:
     def __init__(self, dut, stream):

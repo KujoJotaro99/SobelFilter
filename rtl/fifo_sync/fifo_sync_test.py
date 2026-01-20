@@ -1,4 +1,3 @@
-"""coverage reset hold, expected delay, pointer wraparound, valid deasserts"""
 import random
 import numpy as np
 from collections import deque

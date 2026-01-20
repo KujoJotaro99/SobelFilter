@@ -20,7 +20,7 @@ COMPILE_ARGS += -g2012
 
 WAVES ?= 1
 
-TB_SV := rgb2gray_tb.sv
+# TB_SV := rgb2gray_tb.sv
 
 ifneq ($(filter sv,$(MAKECMDGOALS)),)
     # skip cocotb include for pure SystemVerilog run
@@ -41,6 +41,6 @@ python: clean
 	$(MAKE) MODULE=$(MODULE)
 
 .PHONY: sv
-sv: clean
-	iverilog $(COMPILE_ARGS) -s rgb2gray_tb -o sim_sv $(VERILOG_SOURCES) $(TB_SV)
-	vvp sim_sv
+# sv: clean
+# 	iverilog $(COMPILE_ARGS) -s rgb2gray_tb -o sim_sv $(VERILOG_SOURCES) $(TB_SV)
+# 	vvp sim_sv

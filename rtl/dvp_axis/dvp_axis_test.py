@@ -1,4 +1,3 @@
-"""coverage reset, line framing, expected latency"""
 import numpy as np
 import cv2 as cv
 from pathlib import Path

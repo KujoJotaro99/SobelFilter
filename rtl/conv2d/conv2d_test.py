@@ -1,4 +1,3 @@
-"""coverage reset, sobel x and y convolution, trying to implement uvm like test plan"""
 import numpy as np
 import cv2 as cv
 from pathlib import Path
@@ -20,7 +19,6 @@ class ModelManager:
     def __init__(self, dut):
         self.width = int(dut.DEPTH_P.value)
         self.buf = np.full((3, self.width), np.nan)  # NaN to detect first valid conv
-        self.prev = None
 
     x_kernel = np.array([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]])
     y_kernel = np.array([[-1, -2, -1], [0, 0, 0], [1, 2, 1]])
@@ -35,15 +33,11 @@ class ModelManager:
         # if the window still has any NaN values ignore
         window = self.buf[:, -3:]
         if np.isnan(window).any():
-            curr = None
-        else:
-            gx = int(np.sum(window * self.x_kernel))
-            gy = int(np.sum(window * self.y_kernel))
-            curr = (gx, gy)
+            return (None, None)
 
-        out = self.prev
-        self.prev = curr
-        return out
+        gx = int(np.sum(window * self.x_kernel))
+        gy = int(np.sum(window * self.y_kernel))
+        return gx, gy
 
 class InputManager:
     def __init__(self, stream):
@@ -71,33 +65,30 @@ class InputManager:
 class ScoreManager:
     def __init__(self, model):
         self.model = model
-        self.pending = deque()
-        self.outputs = deque()
-        self.checked = 0
+        self.pending = None
 
     def update_expected(self, input):
-        exp = self.model.run(input)
-        if exp is not None:
-            self.pending.append(exp)
+        gx_exp, gy_exp = self.model.run(input)
+        if gx_exp is not None and gy_exp is not None:
+            self.pending = (gx_exp, gy_exp)
+        else:
+            self.pending = None
 
     def check_output(self, output):
         gx_out, gy_out = output
         if gx_out is None or gy_out is None:
-            return
-        if not self.pending:
-            return
-        self.outputs.append((gx_out, gy_out))
+            return False
+        if self.pending is None:
+            return False
+        exp_gx, exp_gy = self.pending
+        assert gx_out == exp_gx, f"Mismatch: got {gx_out}, expected {exp_gx}"
+        assert gy_out == exp_gy, f"Mismatch: got {gy_out}, expected {exp_gy}"
+        # print(f"X: got {gx_out}, expected {exp_gx}, Y: got {gy_out}, expected {exp_gy}")
+        self.pending = None
+        return True
 
     def drain(self):
-        matched = False
-        while self.pending and self.outputs:
-            exp_gx, exp_gy = self.pending.popleft()
-            got_gx, got_gy = self.outputs.popleft()
-            assert got_gx == exp_gx, f"Mismatch: got {got_gx}, expected {exp_gx}"
-            assert got_gy == exp_gy, f"Mismatch: got {got_gy}, expected {exp_gy}"
-            self.checked += 1
-            matched = True
-        return matched
+        return False
 
 class TestManager:
     def __init__(self, dut, stream):
@@ -115,43 +106,33 @@ class TestManager:
 
     async def run(self):
         try:
-            self.handshake.dut.ready_i.value = 1
             self.input.drive(self.handshake)
-            producer = cocotb.start_soon(self.drive_inputs())
-            consumer = cocotb.start_soon(self.consume_outputs())
-            await producer
-            await consumer
+            cycle = 0
+            while self.checked < self.expected_outputs:
+                await FallingEdge(self.handshake.dut.clk_i)
+                cycle += 1
+
+                if (cycle % self.in_stride) == 0:
+                    if self.handshake.input_accepted():
+                        inp = self.input.accept()
+                        if inp is not None:
+                            self.scoreboard.update_expected(inp)
+                    self.input.drive(self.handshake)
+                else:
+                    self.handshake.dut.valid_i.value = 0
+
+                if (cycle % self.out_stride) == 0:
+                    self.handshake.dut.ready_i.value = 1
+                else:
+                    self.handshake.dut.ready_i.value = 0
+
+                if self.handshake.output_accepted():
+                    if self.scoreboard.check_output(self.handshake.output_value()):
+                        self.checked += 1
+
         finally:
             self.handshake.dut.valid_i.value = 0
             self.handshake.dut.ready_i.value = 0
-
-    async def drive_inputs(self):
-        cycle = 0
-        while self.input.has_next():
-            await FallingEdge(self.handshake.dut.clk_i)
-            cycle += 1
-            if (cycle % self.in_stride) == 0:
-                if self.handshake.input_accepted():
-                    inp = self.input.accept()
-                    if inp is not None:
-                        self.scoreboard.update_expected(inp)
-                self.input.drive(self.handshake)
-            else:
-                self.handshake.dut.valid_i.value = 0
-
-    async def consume_outputs(self):
-        cycle = 0
-        while self.checked < self.expected_outputs:
-            await FallingEdge(self.handshake.dut.clk_i)
-            cycle += 1
-            if (cycle % self.out_stride) == 0:
-                self.handshake.dut.ready_i.value = 1
-            else:
-                self.handshake.dut.ready_i.value = 0
-            if self.handshake.output_accepted():
-                self.scoreboard.check_output(self.handshake.output_value())
-            if self.scoreboard.drain():
-                self.checked = self.scoreboard.checked
 
 class HandshakeManager:
     def __init__(self, dut):

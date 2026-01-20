@@ -12,7 +12,7 @@ VERILOG_SOURCES := $(RTL_SOURCES)
 TOPLEVEL := $(shell python3 -c "import json; \
     print(json.load(open('$(FILELIST_JSON)'))['top'])")
 	
-MODULE := dvp_axis_test
+MODULE := i2c_fsm_test
 
 COCOTB_LOG_LEVEL ?= INFO
 
@@ -20,7 +20,7 @@ COMPILE_ARGS += -g2012
 
 WAVES ?= 1
 
-TB_SV := i2c_fsm_tb.sv
+# TB_SV := i2c_fsm_tb.sv
 
 ifneq ($(filter sv,$(MAKECMDGOALS)),)
     # skip cocotb i jsut include for pure SystemVerilog run
@@ -48,6 +48,6 @@ python: clean
 	$(MAKE) MODULE=$(MODULE)
 
 .PHONY: sv
-sv: clean
-	iverilog $(COMPILE_ARGS) -s i2c_fsm_tb -o sim_sv $(VERILOG_SOURCES) $(TB_SV)
-	vvp sim_sv
+# sv: clean
+# 	iverilog $(COMPILE_ARGS) -s i2c_fsm_tb -o sim_sv $(VERILOG_SOURCES) $(TB_SV)
+# 	vvp sim_sv

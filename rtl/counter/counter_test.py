@@ -1,4 +1,3 @@
-"""coverage reset, up/down, enable, wrap"""
 import random
 
 import cocotb
@@ -61,7 +60,7 @@ class InputManager:
         if not self.valid and self.has_next():
             self.current = self.data[self.idx]
             self.valid = True
-        handshake.drive(self.valid, self.current if self.valid else (1, 0, 0))
+        handshake.drive(self.valid, self.current if self.valid else (0, 0, 0))
 
     def accept(self):
         if self.valid:
@@ -87,6 +86,9 @@ class ScoreManager:
         self.pending = None
         return True
 
+    def drain(self):
+        return False
+
 class TestManager:
     def __init__(self, dut, stream):
         self.handshake = HandshakeManager(dut)
@@ -95,23 +97,31 @@ class TestManager:
         self.scoreboard = ScoreManager(self.model)
         self.expected_outputs = len(stream)
         self.checked = 0
+        self.in_stride = 1
+        self.out_stride = 1
 
     async def run(self):
         try:
             self.input.drive(self.handshake)
+            cycle = 0
             while self.checked < self.expected_outputs:
                 await FallingEdge(self.handshake.dut.clk_i)
+                cycle += 1
 
-                if self.handshake.input_accepted():
-                    inp = self.input.accept()
-                    if inp is not None:
-                        self.scoreboard.update_expected(inp)
+                if (cycle % self.in_stride) == 0:
+                    if self.handshake.input_accepted():
+                        inp = self.input.accept()
+                        if inp is not None:
+                            self.scoreboard.update_expected(inp)
+                    self.input.drive(self.handshake)
+                else:
+                    self.handshake.drive(False, (0, 0, 0))
 
-                if self.handshake.output_accepted():
-                    if self.scoreboard.check_output(self.handshake.output_value()):
-                        self.checked += 1
+                if (cycle % self.out_stride) == 0:
+                    if self.handshake.output_accepted():
+                        if self.scoreboard.check_output(self.handshake.output_value()):
+                            self.checked += 1
 
-                self.input.drive(self.handshake)
         finally:
             self.handshake.dut.en_i.value = 0
             self.handshake.dut.up_i.value = 0

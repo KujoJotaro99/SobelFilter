@@ -1,4 +1,3 @@
-"""coverage reset, rgb2gray coefficient approximation, trying to implement uvm like test plan"""
 import numpy as np
 from collections import deque
 
@@ -76,6 +75,9 @@ class ScoreManager:
             assert rms < self.rms_threshold, f"RMS error too high: {rms} (threshold {self.rms_threshold})"
         return True
 
+    def drain(self):
+        return False
+
 class TestManager:
     def __init__(self, dut, stream):
         self.handshake = HandshakeManager(dut)
@@ -86,24 +88,36 @@ class TestManager:
         self.input = InputManager(stream)
         self.model = ModelManager(dut)
         self.scoreboard = ScoreManager(self.model, self.expected_outputs, rms_threshold=20)
+        self.in_stride = 1
+        self.out_stride = 1
 
     async def run(self):
         try:
             self.input.drive(self.handshake)
+            cycle = 0
             while self.checked < self.expected_outputs:
                 await FallingEdge(self.handshake.dut.clk_i)
+                cycle += 1
 
-                if self.handshake.input_accepted():
-                    inp = self.input.accept()
-                    if inp is not None:
-                        self.scoreboard.update_expected(inp)
+                if (cycle % self.in_stride) == 0:
+                    if self.handshake.input_accepted():
+                        inp = self.input.accept()
+                        if inp is not None:
+                            self.scoreboard.update_expected(inp)
+                    self.input.drive(self.handshake)
+                else:
+                    self.handshake.dut.valid_i.value = 0
+
+                if (cycle % self.out_stride) == 0:
+                    self.handshake.dut.ready_i.value = 1
+                else:
+                    self.handshake.dut.ready_i.value = 0
 
                 if self.handshake.output_accepted():
                     gray_out = self.handshake.output_value()
                     if self.scoreboard.check_output(gray_out):
                         self.checked += 1
 
-                self.input.drive(self.handshake)
         finally:
             self.handshake.dut.valid_i.value = 0
             self.handshake.dut.ready_i.value = 0
@@ -116,7 +130,6 @@ class HandshakeManager:
         self.dut.valid_i.value = 1 if valid else 0
         self.dut.gx_i.value = int(data_rgb[0])
         self.dut.gy_i.value = int(data_rgb[1])
-        self.dut.ready_i.value = 1
 
     def input_accepted(self):
         return bool(self.dut.valid_i.value and self.dut.ready_o.value)
