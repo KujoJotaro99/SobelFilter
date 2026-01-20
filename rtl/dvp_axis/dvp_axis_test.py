@@ -25,20 +25,9 @@ class ModelManager:
 
 class InputManager:
     def __init__(self, stream):
-        self.seq = self.build_sequence(stream)
+        self.seq = stream
         self.idx = 0
         self.current = None
-
-    def build_sequence(self, stream):
-        height, width = stream.shape
-        seq = []
-        for r in range(height):
-            for c in range(width):
-                last = (c == (width - 1))
-                seq.append((1, int(stream[r, c]), 1, last))
-            seq.append((0, 0, 1, False))
-        seq.append((0, 0, 0, False))
-        return seq
 
     def has_next(self):
         return self.idx < len(self.seq)
@@ -89,7 +78,7 @@ class TestManager:
     def __init__(self, dut, stream):
         self.handshake = HandshakeManager(dut)
 
-        self.expected_outputs = int(stream.shape[0] * stream.shape[1])
+        self.expected_outputs = sum(1 for hsync, _, _, _ in stream if hsync)
         self.checked = 0
 
         self.input = InputManager(stream)
@@ -161,39 +150,50 @@ async def reset_test(dut):
     await Timer(10 * CLK_PERIOD_NS, unit="ns")
     await FallingEdge(dut.pclk_i)
 
+def build_sequence(img):
+    height, width = img.shape
+    seq = []
+    for r in range(height):
+        for c in range(width):
+            last = (c == (width - 1))
+            seq.append((1, int(img[r, c]), 1, last))
+        seq.append((0, 0, 1, False))
+    seq.append((0, 0, 0, False))
+    return seq
+
 @cocotb.test()
 async def single_zeroes_test(dut):
     await clock_test(dut)
     await reset_test(dut)
-    stream = np.zeros((8, 16), dtype=np.uint8)
-    env = TestManager(dut, stream)
+    img = np.zeros((8, 16), dtype=np.uint8)
+    env = TestManager(dut, build_sequence(img))
     await env.run()
 
 @cocotb.test()
 async def single_ones_test(dut):
     await clock_test(dut)
     await reset_test(dut)
-    stream = np.ones((8, 16), dtype=np.uint8)
-    env = TestManager(dut, stream)
+    img = np.ones((8, 16), dtype=np.uint8)
+    env = TestManager(dut, build_sequence(img))
     await env.run()
 
 @cocotb.test()
 async def single_impulse_test(dut):
     await clock_test(dut)
     await reset_test(dut)
-    stream = np.zeros((8, 16), dtype=np.uint8)
-    stream[3, 7] = 1
-    env = TestManager(dut, stream)
+    img = np.zeros((8, 16), dtype=np.uint8)
+    img[3, 7] = 1
+    env = TestManager(dut, build_sequence(img))
     await env.run()
 
 @cocotb.test()
 async def single_alternate_test(dut):
     await clock_test(dut)
     await reset_test(dut)
-    stream = np.zeros((8, 16), dtype=np.uint8)
-    stream[::2, ::2] = 1
-    stream[1::2, 1::2] = 1
-    env = TestManager(dut, stream)
+    img = np.zeros((8, 16), dtype=np.uint8)
+    img[::2, ::2] = 1
+    img[1::2, 1::2] = 1
+    env = TestManager(dut, build_sequence(img))
     await env.run()
 
 @cocotb.test()
@@ -201,8 +201,8 @@ async def single_random_test(dut):
     await clock_test(dut)
     await reset_test(dut)
     np.random.seed(42)
-    stream = np.random.randint(0, 256, size=(12, 20), dtype=np.uint8)
-    env = TestManager(dut, stream)
+    img = np.random.randint(0, 256, size=(12, 20), dtype=np.uint8)
+    env = TestManager(dut, build_sequence(img))
     await env.run()
 
 @cocotb.test()
@@ -214,5 +214,5 @@ async def single_image_test(dut):
     if img is None:
         raise FileNotFoundError(img_path)
     img = img[:32, :64]
-    env = TestManager(dut, img.astype(np.uint8))
+    env = TestManager(dut, build_sequence(img.astype(np.uint8)))
     await env.run()

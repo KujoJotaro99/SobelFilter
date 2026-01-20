@@ -1,8 +1,9 @@
 `timescale 1ns/1ps
 
-module counter #(
-    parameter int WIDTH_P = 32,
-    parameter int MAX_VAL_P = 128
+module counter 
+#(
+    parameter WIDTH_P = 32,
+    parameter MAX_VAL_P = 128
 ) (
     input logic [0:0] clk_i,
     input logic [0:0] rstn_i,

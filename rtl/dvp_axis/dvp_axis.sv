@@ -1,7 +1,8 @@
 `timescale 1ns/1ps
 
-module dvp_axis #(
-    parameter int WIDTH_P = 8
+module dvp_axis 
+#(
+    parameter WIDTH_P = 8
 ) (
     input logic [0:0] pclk_i, // pixel clock
     input logic [0:0] rstn_i, // async active low reset

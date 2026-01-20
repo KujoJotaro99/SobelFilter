@@ -1,6 +1,7 @@
 `timescale 1ns/1ps
 
-module conv2d #(
+module conv2d 
+#(
     parameter WIDTH_P = 8,
     parameter DEPTH_P = 16
 )(
@@ -38,16 +39,19 @@ module conv2d #(
     // convolution sliding window
     logic [WIDTH_P-1:0] conv_window [2:0][2:0];
 
+    integer r;
+    integer c;
+
     always_ff @(posedge clk_i) begin
         if (!rstn_i) begin
-            for (int r = 0; r < 3; r++) begin
-                for (int c = 0; c < 3; c++) begin
+            for (r = 0; r < 3; r = r + 1) begin
+                for (c = 0; c < 3; c = c + 1) begin
                     conv_window[r][c] <= '0;
                 end
             end
         end else if (valid_i & ready_o) begin
             // shift data into each row
-            for (int r = 0; r < 3; r++) begin
+            for (r = 0; r < 3; r = r + 1) begin
                 conv_window[r][0] <= conv_window[r][1];
                 conv_window[r][1] <= conv_window[r][2];
             end
@@ -72,22 +76,28 @@ module conv2d #(
     //      0,  0,  0,
     //      1,  2,  1
     // };
-    function automatic signed [3:0] kx(input int idx);
-        case (idx)
-            0: kx = -1;  1: kx =  0;  2: kx =  1;
-            3: kx = -2;  4: kx =  0;  5: kx =  2;
-            6: kx = -1;  7: kx =  0;  8: kx =  1;
-            default: kx = 0;
-        endcase
+    function automatic signed [3:0] kx;
+        input integer idx;
+        begin
+            case (idx)
+                0: kx = -1;  1: kx =  0;  2: kx =  1;
+                3: kx = -2;  4: kx =  0;  5: kx =  2;
+                6: kx = -1;  7: kx =  0;  8: kx =  1;
+                default: kx = 0;
+            endcase
+        end
     endfunction
 
-    function automatic signed [3:0] ky(input int idx);
-        case (idx)
-            0: ky = -1;  1: ky = -2;  2: ky = -1;
-            3: ky =  0;  4: ky =  0;  5: ky =  0;
-            6: ky =  1;  7: ky =  2;  8: ky =  1;
-            default: ky = 0;
-        endcase
+    function automatic signed [3:0] ky;
+        input integer idx;
+        begin
+            case (idx)
+                0: ky = -1;  1: ky = -2;  2: ky = -1;
+                3: ky =  0;  4: ky =  0;  5: ky =  0;
+                6: ky =  1;  7: ky =  2;  8: ky =  1;
+                default: ky = 0;
+            endcase
+        end
     endfunction
 
     logic signed [(2*WIDTH_P)-1:0] gx_sum [0:8];

@@ -1,6 +1,7 @@
 `timescale 1ns/1ps
 
-module magnitude #(
+module magnitude 
+#(
     parameter WIDTH_P = 8
 ) (
     input logic [0:0] clk_i,

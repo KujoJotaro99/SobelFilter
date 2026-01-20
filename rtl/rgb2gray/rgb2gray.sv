@@ -1,6 +1,7 @@
 `timescale 1ns/1ps
 
-module rgb2gray #(
+module rgb2gray 
+#(
     parameter WIDTH_P = 8
 ) (
     input logic [0:0] clk_i,
@@ -20,19 +21,19 @@ module rgb2gray #(
 
     // 0.299 approximated with 0.28125 
     // (red*0.25 + red*0.03125) = (red >> 2) + (red >> 5)
-    localparam int RED_SHIFT_1 = 2;
-    localparam int RED_SHIFT_2 = 5;
+    localparam integer RED_SHIFT_1 = 2;
+    localparam integer RED_SHIFT_2 = 5;
 
     // 0.587 approximated with 0.5625
     // (green*0.5 + green*0.0625) = (green >> 1) + (green >> 4)
-    localparam int GREEN_SHIFT_1 = 1;
-    localparam int GREEN_SHIFT_2 = 4;
+    localparam integer GREEN_SHIFT_1 = 1;
+    localparam integer GREEN_SHIFT_2 = 4;
 
     // 0.114 approximated with 0.09375
     // (blue*0.0625 + blue*0.03125) = (blue >> 4) + (blue >> 5)
     // note: 2^-3 (blue >> 3) could also work but overweights blue
-    localparam int BLUE_SHIFT_1 = 4;
-    localparam int BLUE_SHIFT_2 = 5;
+    localparam integer BLUE_SHIFT_1 = 4;
+    localparam integer BLUE_SHIFT_2 = 5;
 
     logic [WIDTH_P-1:0] red_term, green_term, blue_term;
     logic [WIDTH_P:0] gray_acc;

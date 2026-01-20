@@ -1,6 +1,7 @@
 `timescale 1ns/1ps
 
-module fifo_sync #(
+module fifo_sync 
+#(
     parameter WIDTH_P = 8,
     parameter DEPTH_P = 16
 ) (

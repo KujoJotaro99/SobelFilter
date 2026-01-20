@@ -19,14 +19,17 @@ module sync_ram_block #(
 );
 
     logic [WIDTH_P-1:0] mem_array [DEPTH_P-1:0];
+    integer i;
 
     initial begin
         if (filename_p != "") begin
             $readmemb(filename_p, mem_array);
         end
-        for (int i = 0; i < DEPTH_P; i++) begin
+`ifndef SYNTHESIS
+        for (i = 0; i < DEPTH_P; i = i + 1) begin
             $dumpvars(0, mem_array[i]);
         end
+`endif
         $display("%m: depth_p is %d, width_p is %d", DEPTH_P, WIDTH_P);
     end
 

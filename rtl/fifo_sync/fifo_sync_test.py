@@ -7,8 +7,7 @@ import cocotb
 from cocotb.clock import Clock
 from cocotb.triggers import FallingEdge, Timer
 
-CLK_PERIOD_A_NS = 10
-CLK_PERIOD_B_NS = 21
+CLK_PERIOD_NS = 10
 
 class ModelManager:
     def __init__(self, dut):
@@ -83,6 +82,8 @@ class TestManager:
         inputs = sum(1 for x in stream if x is not None)
         self.expected_outputs = inputs
         self.checked = 0
+        self.in_stride = 1
+        self.out_stride = 1
 
     async def run(self):
         try:
@@ -97,17 +98,28 @@ class TestManager:
             self.handshake.dut.ready_i.value = 0
 
     async def drive_inputs(self):
+        cycle = 0
         while self.input.has_next():
-            await FallingEdge(self.handshake.dut.pclk_i)
-            if self.handshake.input_accepted():
-                inp = self.input.accept()
-                if inp is not None:
-                    self.scoreboard.update_expected(inp)
-            self.input.drive(self.handshake)
+            await FallingEdge(self.handshake.dut.clk_i)
+            cycle += 1
+            if (cycle % self.in_stride) == 0:
+                if self.handshake.input_accepted():
+                    inp = self.input.accept()
+                    if inp is not None:
+                        self.scoreboard.update_expected(inp)
+                self.input.drive(self.handshake)
+            else:
+                self.handshake.dut.valid_i.value = 0
 
     async def consume_outputs(self):
+        cycle = 0
         while self.scoreboard.checked < self.expected_outputs:
-            await FallingEdge(self.handshake.dut.cclk_i)
+            await FallingEdge(self.handshake.dut.clk_i)
+            cycle += 1
+            if (cycle % self.out_stride) == 0:
+                self.handshake.dut.ready_i.value = 1
+            else:
+                self.handshake.dut.ready_i.value = 0
             if self.handshake.output_accepted():
                 self.scoreboard.check_output(self.handshake.output_value())
             if self.scoreboard.drain():
@@ -120,7 +132,6 @@ class HandshakeManager:
     def drive(self, valid, data):
         self.dut.valid_i.value = 1 if valid else 0
         self.dut.data_i.value = int(data)
-        self.dut.ready_i.value = 1
 
     def input_accepted(self):
         return bool(self.dut.valid_i.value and self.dut.ready_o.value)
@@ -136,9 +147,7 @@ class HandshakeManager:
 async def counter_clock_test(dut):
     """Clock gen"""
     await Timer(100, unit="ns")
-    cocotb.start_soon(Clock(dut.pclk_i, CLK_PERIOD_A_NS, unit="ns").start())
-    await Timer(CLK_PERIOD_B_NS // 2, unit="ns")
-    cocotb.start_soon(Clock(dut.cclk_i, CLK_PERIOD_B_NS, unit="ns").start())
+    cocotb.start_soon(Clock(dut.clk_i, CLK_PERIOD_NS, unit="ns").start())
     await Timer(10, unit="ns")
 
 async def init_dut(dut):
@@ -147,11 +156,11 @@ async def init_dut(dut):
     dut.valid_i.value = 0
     dut.ready_i.value = 1
     dut.data_i.value = 0
-    await FallingEdge(dut.pclk_i)
-    await FallingEdge(dut.pclk_i)
-    await FallingEdge(dut.pclk_i)
+    await FallingEdge(dut.clk_i)
+    await FallingEdge(dut.clk_i)
+    await FallingEdge(dut.clk_i)
     dut.rstn_i.value = 1
-    await FallingEdge(dut.pclk_i)
+    await FallingEdge(dut.clk_i)
 
 @cocotb.test(skip=False)
 async def test_fifo_sync_reset(dut):
@@ -161,7 +170,7 @@ async def test_fifo_sync_reset(dut):
     dut.valid_i.value = 0
 
     for cycle in range(10):
-        await FallingEdge(dut.cclk_i)
+        await FallingEdge(dut.clk_i)
         assert dut.valid_o.value == 0, f"valid_o should stay low after {cycle+1} cycles"
 
 @cocotb.test(skip=False)
@@ -174,5 +183,7 @@ async def test_fifo_sync_stream(dut):
 
     stream = [random.randint(0, (1 << width) - 1) for _ in range(1000)]
     env = TestManager(dut, stream)
+    env.in_stride = 1
+    env.out_stride = 2
     await env.run()
     assert env.checked == len(stream)
