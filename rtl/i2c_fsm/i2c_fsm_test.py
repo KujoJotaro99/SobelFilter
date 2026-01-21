@@ -66,7 +66,7 @@ class ScoreManager:
         return False
 
     def drain(self):
-        """Template hook for queue-based comparisons."""
+        """Only for queue-based comparisons."""
         return False
 
 class TestManager:
