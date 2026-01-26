@@ -73,28 +73,25 @@ class ScoreManager:
     """Tracks expected outputs and compares against DUT results."""
     def __init__(self, model):
         self.model = model
-        self.pending = None
+        self.pending = deque()
 
     def update_expected(self, input):
         """Queue expected outputs for a new input."""
         gx_exp, gy_exp = self.model.run(input)
         if gx_exp is not None and gy_exp is not None:
-            self.pending = (gx_exp, gy_exp)
-        else:
-            self.pending = None
+            self.pending.append((gx_exp, gy_exp))
 
     def check_output(self, output):
         """Compare DUT output against expected values."""
         gx_out, gy_out = output
         if gx_out is None or gy_out is None:
             return False
-        if self.pending is None:
+        if not self.pending:
             return False
-        exp_gx, exp_gy = self.pending
+        exp_gx, exp_gy = self.pending.popleft()
         assert gx_out == exp_gx, f"Mismatch: got {gx_out}, expected {exp_gx}"
         assert gy_out == exp_gy, f"Mismatch: got {gy_out}, expected {exp_gy}"
         # print(f"X: got {gx_out}, expected {exp_gx}, Y: got {gy_out}, expected {exp_gy}")
-        self.pending = None
         return True
 
     def drain(self):
@@ -125,15 +122,6 @@ class TestManager:
                 await FallingEdge(self.handshake.dut.clk_i)
                 cycle += 1
 
-                if (cycle % self.in_stride) == 0:
-                    if self.handshake.input_accepted():
-                        inp = self.input.accept()
-                        if inp is not None:
-                            self.scoreboard.update_expected(inp)
-                    self.input.drive(self.handshake)
-                else:
-                    self.handshake.dut.valid_i.value = 0
-
                 if (cycle % self.out_stride) == 0:
                     self.handshake.dut.ready_i.value = 1
                 else:
@@ -142,6 +130,15 @@ class TestManager:
                 if self.handshake.output_accepted():
                     if self.scoreboard.check_output(self.handshake.output_value()):
                         self.checked += 1
+
+                if (cycle % self.in_stride) == 0:
+                    if self.handshake.input_accepted():
+                        inp = self.input.accept()
+                        if inp is not None:
+                            self.scoreboard.update_expected(inp)
+                    self.input.drive(self.handshake)
+                else:
+                    self.handshake.dut.valid_i.value = 0
 
         finally:
             self.handshake.dut.valid_i.value = 0

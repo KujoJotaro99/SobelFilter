@@ -63,59 +63,46 @@ module conv2d
         end
     end
 
-    // sobel x and y kernel
-    // 1d 2d arrays not supported in icarus???
-    // localparam signed [3:0] KX [8:0] = '{
-    //     -1,  0,  1,
-    //     -2,  0,  2,
-    //     -1,  0,  1
-    // };
-    
-    // localparam signed [3:0] KY [8:0] = '{
-    //     -1, -2, -1,
-    //      0,  0,  0,
-    //      1,  2,  1
-    // };
-    function automatic signed [3:0] kx;
-        input integer idx;
-        begin
-            case (idx)
-                0: kx = -1;  1: kx =  0;  2: kx =  1;
-                3: kx = -2;  4: kx =  0;  5: kx =  2;
-                6: kx = -1;  7: kx =  0;  8: kx =  1;
-                default: kx = 0;
-            endcase
+    logic signed [(2*WIDTH_P)-1:0] p00_s;
+    logic signed [(2*WIDTH_P)-1:0] p01_s;
+    logic signed [(2*WIDTH_P)-1:0] p02_s;
+    logic signed [(2*WIDTH_P)-1:0] p10_s;
+    logic signed [(2*WIDTH_P)-1:0] p12_s;
+    logic signed [(2*WIDTH_P)-1:0] p20_s;
+    logic signed [(2*WIDTH_P)-1:0] p21_s;
+    logic signed [(2*WIDTH_P)-1:0] p22_s;
+    logic signed [(2*WIDTH_P)-1:0] gx_pos;
+    logic signed [(2*WIDTH_P)-1:0] gx_neg;
+    logic signed [(2*WIDTH_P)-1:0] gy_pos;
+    logic signed [(2*WIDTH_P)-1:0] gy_neg;
+    logic signed [(2*WIDTH_P)-1:0] gx_comb;
+    logic signed [(2*WIDTH_P)-1:0] gy_comb;
+
+    assign p00_s = $signed({1'b0, conv_window[0][0]});
+    assign p01_s = $signed({1'b0, conv_window[0][1]});
+    assign p02_s = $signed({1'b0, conv_window[0][2]});
+    assign p10_s = $signed({1'b0, conv_window[1][0]});
+    assign p12_s = $signed({1'b0, conv_window[1][2]});
+    assign p20_s = $signed({1'b0, conv_window[2][0]});
+    assign p21_s = $signed({1'b0, conv_window[2][1]});
+    assign p22_s = $signed({1'b0, conv_window[2][2]});
+
+    assign gx_pos = p02_s + (p12_s <<< 1) + p22_s;
+    assign gx_neg = p00_s + (p10_s <<< 1) + p20_s;
+    assign gy_pos = p20_s + (p21_s <<< 1) + p22_s;
+    assign gy_neg = p00_s + (p01_s <<< 1) + p02_s;
+
+    assign gx_comb = gx_pos - gx_neg;
+    assign gy_comb = gy_pos - gy_neg;
+
+    always_ff @(posedge clk_i) begin
+        if (!rstn_i) begin
+            gx_o <= '0;
+            gy_o <= '0;
+        end begin
+            gx_o <= gx_comb;
+            gy_o <= gy_comb;
         end
-    endfunction
+    end
 
-    function automatic signed [3:0] ky;
-        input integer idx;
-        begin
-            case (idx)
-                0: ky = -1;  1: ky = -2;  2: ky = -1;
-                3: ky =  0;  4: ky =  0;  5: ky =  0;
-                6: ky =  1;  7: ky =  2;  8: ky =  1;
-                default: ky = 0;
-            endcase
-        end
-    endfunction
-
-    logic signed [(2*WIDTH_P)-1:0] gx_sum [0:8];
-    logic signed [(2*WIDTH_P)-1:0] gy_sum [0:8];
-
-    assign gx_sum[0] = $signed({1'b0, conv_window[0][0]}) * kx(0);
-    assign gy_sum[0] = $signed({1'b0, conv_window[0][0]}) * ky(0);
-
-    genvar t;
-    generate
-        for (t = 1; t < 9; t = t + 1) begin
-            // converted to unsigned to match the jupyter model
-            assign gx_sum[t] = gx_sum[t-1] + ($signed({1'b0, conv_window[t/3][t%3]}) * kx(t)); // v*erilator wants to flatten this so it gives a circular comb error but its an prefix counter so its expected
-            assign gy_sum[t] = gy_sum[t-1] + ($signed({1'b0, conv_window[t/3][t%3]}) * ky(t));
-        end
-    endgenerate
-
-    // gradient is sum of all previous values
-    assign gx_o = gx_sum[8];
-    assign gy_o = gy_sum[8];
 endmodule

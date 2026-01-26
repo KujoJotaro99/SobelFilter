@@ -18,11 +18,21 @@ set_io -nowarn cam_data_i[1] 31
 set_io -nowarn cam_data_i[0] 28
 
 # camera sync and clock on pmod1a
-set_io -nowarn cam_vsync_i 2
-set_io -nowarn cam_hsync_i 48
-set_io -nowarn cam_pclk_i 47
-set_io -nowarn cam_xclk_o 46
+set_io -nowarn cam_vsync_i 48
+set_io -nowarn cam_hsync_i 2
+set_io -nowarn cam_pclk_i 46
+set_io -nowarn cam_xclk_o 47
 
 # camera i2c on pmod1a
-set_io -nowarn cam_scl_io 4
-set_io -nowarn cam_sda_io 3
+set_io -nowarn cam_scl_io 3
+set_io -nowarn cam_sda_io 4
+
+# dvi output on pmod2
+set_io -nowarn dvi_data_o[2] 23
+set_io -nowarn dvi_data_o[1] 25
+set_io -nowarn dvi_de_o 26
+set_io -nowarn dvi_vsync_o 27
+set_io -nowarn dvi_data_o[3] 21
+set_io -nowarn dvi_pclk_o 20
+set_io -nowarn dvi_data_o[0] 19
+set_io -nowarn dvi_hsync_o 18

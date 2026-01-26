@@ -15,7 +15,12 @@ module sobel
     input logic [WIDTH_P-1:0] cam_data_i, // pixel byte from camera
     output logic cam_xclk_o, // reference clock to camera
     inout wire cam_scl_io, // i2c scl line
-    inout wire cam_sda_io // i2c sda line
+    inout wire cam_sda_io, // i2c sda line
+    output logic [3:0] dvi_data_o, // video data nibble
+    output logic dvi_pclk_o, // video pixel clock
+    output logic dvi_hsync_o, // video hsync
+    output logic dvi_vsync_o, // video vsync
+    output logic dvi_de_o // video data enable
 );
 
     logic pll_clk; // pll output clock
@@ -63,6 +68,8 @@ module sobel
 
     logic [$clog2(LINE_W_P)-1:0] x_cnt; // output column counter
     logic [$clog2(FRAME_H_P)-1:0] y_cnt; // output row counter
+    logic [$clog2(LINE_W_P+160)-1:0] h_cnt; // display column counter
+    logic [$clog2(FRAME_H_P+45)-1:0] v_cnt; // display row counter
 
     SB_PLL40_PAD #(
         .FEEDBACK_PATH("SIMPLE"),
@@ -87,6 +94,10 @@ module sobel
     );
 
     assign cam_xclk_o = pll_clk;
+    assign dvi_pclk_o = cam_pclk_i;
+    assign dvi_hsync_o = ~((h_cnt >= (LINE_W_P + 16)) && (h_cnt < (LINE_W_P + 16 + 96)));
+    assign dvi_vsync_o = ~((v_cnt >= (FRAME_H_P + 10)) && (v_cnt < (FRAME_H_P + 10 + 2)));
+    assign dvi_de_o = (h_cnt < LINE_W_P) && (v_cnt < FRAME_H_P);
 
     assign cam_scl_io = i2c_scl_oe ? i2c_scl_o : 1'bz;
     assign cam_sda_io = i2c_sda_oe ? i2c_sda_o : 1'bz;
@@ -219,6 +230,16 @@ module sobel
         .gy_o(gy_s)
     );
 
+    // always_ff @(posedge clk_i) begin
+    //     if(!rstn_i) begin
+    //         gx_abs <= '0;
+    //         gy_abs <= '0;
+    //     end else begin
+    //         gx_abs <= gx_s[2*WIDTH_P-1] ? (~gx_s + 1'b1) : gx_s;
+    //         gy_abs <= gy_s[2*WIDTH_P-1] ? (~gy_s + 1'b1) : gy_s;
+    //     end
+    // end
+
     assign gx_abs = gx_s[2*WIDTH_P-1] ? (~gx_s + 1'b1) : gx_s;
     assign gy_abs = gy_s[2*WIDTH_P-1] ? (~gy_s + 1'b1) : gy_s;
 
@@ -235,6 +256,24 @@ module sobel
         .ready_o(mag_ready),
         .mag_o(mag_data)
     );
+
+    assign dvi_data_o = (dvi_de_o && mag_valid) ? mag_data[7:4] : 4'b0;
+
+    always_ff @(posedge cam_pclk_i) begin
+        if (!rstn_cam) begin
+            h_cnt <= '0;
+            v_cnt <= '0;
+        end else if (h_cnt == (LINE_W_P + 160 - 1)) begin
+            h_cnt <= '0;
+            if (v_cnt == (FRAME_H_P + 45 - 1)) begin
+                v_cnt <= '0;
+            end else begin
+                v_cnt <= v_cnt + 1'b1;
+            end
+        end else begin
+            h_cnt <= h_cnt + 1'b1;
+        end
+    end
 
     counter #(
         .WIDTH_P($clog2(LINE_W_P)),
