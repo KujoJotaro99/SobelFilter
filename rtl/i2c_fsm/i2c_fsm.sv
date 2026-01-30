@@ -17,7 +17,6 @@ module i2c_fsm
     localparam [3:0] I2CTXDR_ADDR = 4'h8;
     localparam [3:0] I2CCMDR_ADDR = 4'h7;
     
-    // hm0360 camera i2c slave address
     localparam [7:0] CAM_I2C_ADDR = 8'h24;
     
     // i2c control values register table: https://cdn.sparkfun.com/assets/d/2/9/9/7/Pre-HM0360_DS_preliminary_v04__Ltd._-1.pdf
@@ -36,7 +35,6 @@ module i2c_fsm
         LINE_LEN_PCK_L = 16'h0343,
         ANA_REGISTER_03 = 16'h310E;
 
-    // camera config reg_addr[15:0], data[7:0]
     localparam CONFIG_LEN = 9;
     localparam REG_IDX_W = $clog2(CONFIG_LEN);
 
@@ -69,7 +67,6 @@ module i2c_fsm
         end
     end
 
-    // counter for fsm to write all config values
     counter #(
         .WIDTH_P(REG_IDX_W),
         .MAX_VAL_P(CONFIG_LEN-1)
@@ -84,15 +81,14 @@ module i2c_fsm
     );
     
     always_comb begin
-        // address and value to write from hm0360.cpp
         case (reg_idx)
-            0: begin current_reg = SW_RESET; current_data = 8'h00; end
+            0: begin current_reg = SW_RESET; current_data = 8'h01; end
             1: begin current_reg = PLL1_CONFIG; current_data = 8'h04; end
             2: begin current_reg = FRAME_LEN_LINES_H; current_data = 8'h02; end
             3: begin current_reg = FRAME_LEN_LINES_L; current_data = 8'h14; end
             4: begin current_reg = LINE_LEN_PCK_H; current_data = 8'h03; end
             5: begin current_reg = LINE_LEN_PCK_L; current_data = 8'h00; end
-            6: begin current_reg = ANA_REGISTER_03; current_data = 8'h00; end
+            6: begin current_reg = ANA_REGISTER_03; current_data = 8'h01; end
             7: begin current_reg = COMMAND_UPDATE; current_data = 8'h01; end
             8: begin current_reg = MODE_SELECT; current_data = 8'h01; end
             default: begin current_reg = 16'h0; current_data = 8'h0; end

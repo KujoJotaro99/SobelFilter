@@ -1,7 +1,0 @@
-cocotb>=1.7.0
-cocotb-bus>=0.2.1
-cocotbext-axi
-cocotbext-uart
-cocotbext-spi
-pytest>=7.0.0
-numpy>=1.21.0

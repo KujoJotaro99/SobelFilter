@@ -99,7 +99,7 @@ module conv2d
         if (!rstn_i) begin
             gx_o <= '0;
             gy_o <= '0;
-        end begin
+        end else begin
             gx_o <= gx_comb;
             gy_o <= gy_comb;
         end
