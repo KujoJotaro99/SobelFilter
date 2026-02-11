@@ -182,24 +182,25 @@ module sobel
 
     logic [WIDTH_P-1:0] gx_abs;
     logic [WIDTH_P-1:0] gy_abs;
-    logic [2*WIDTH_P-1:0] abs_data;
+    logic [2*WIDTH_P-1:0] abs_data_i;
+    logic [2*WIDTH_P-1:0] abs_data_o;
     logic abs_valid;
     logic abs_ready;
 
     assign gx_abs = conv_gx[2*WIDTH_P-1] ? -conv_gx : conv_gx;
     assign gy_abs = conv_gy[2*WIDTH_P-1] ? -conv_gy : conv_gy;
-    assign abs_data = {gx_abs, gy_abs};
+    assign abs_data_i = {gx_abs, gy_abs};
 
     elastic #(
         .WIDTH_P(2*WIDTH_P)
     ) abs_pipe (
         .clk_i(core_clk),
         .rstn_i(rstn_sync),
-        .data_i({gx_abs, gy_abs}),
+        .data_i(abs_data_i),
         .valid_i(conv_valid),
         .ready_o(conv_ready),
         .valid_o(abs_valid),
-        .data_o(abs_data),
+        .data_o(abs_data_o),
         .ready_i(abs_ready)
     );
 
@@ -214,8 +215,8 @@ module sobel
         .rstn_i(rstn_sync),
         .valid_i(abs_valid),
         .ready_i(mag_ready),
-        .gx_i(abs_data[2*WIDTH_P-1:WIDTH_P]),
-        .gy_i(abs_data[WIDTH_P-1:0]),
+        .gx_i(abs_data_o[2*WIDTH_P-1:WIDTH_P]),
+        .gy_i(abs_data_o[WIDTH_P-1:0]),
         .valid_o(mag_valid),
         .ready_o(abs_ready),
         .mag_o(mag_data)

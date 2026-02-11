@@ -15,7 +15,7 @@ CLK_PERIOD_NS = 10
 # drivers
 
 class ModelManager:
-    """Reference magnitude model using sqrt(gx^2+gy^2)."""
+    """Reference magnitude model using (gx+gy) lower bits."""
     def __init__(self, dut):
         self.width = int(dut.WIDTH_P.value)
 
@@ -23,8 +23,8 @@ class ModelManager:
         """Advance model state for one input and return expected output."""
         # input format [gx, gy]
         gx, gy = input
-        mag_exp = (gx * gx + gy * gy) ** 0.5
-        return int(mag_exp)
+        mask = (1 << self.width) - 1
+        return int((gx + gy) & mask)
 
 class InputManager:
     """Drives input stream into the DUT with a valid buffer."""
