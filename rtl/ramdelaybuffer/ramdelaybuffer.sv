@@ -4,8 +4,9 @@ module ramdelaybuffer
 #(
     parameter WIDTH_P = 8,
     parameter DELAY_P = 12,
-    parameter DELAY_A_P = DELAY_P,
-    parameter DELAY_B_P = DELAY_P
+    // obviously will fail same delay test
+    parameter DELAY_A_P = 4,
+    parameter DELAY_B_P = 5
 ) (
     input logic [0:0] clk_i,
     input logic [0:0] rstn_i,

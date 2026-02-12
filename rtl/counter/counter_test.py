@@ -80,24 +80,24 @@ class ScoreManager:
     """Tracks expected outputs and compares against DUT results."""
     def __init__(self, model):
         self.model = model
-        self.pending = None
+        self.pending = []
 
     def update_expected(self, input):
         """Queue expected outputs for a new input."""
-        self.pending = self.model.run(input)
+        self.pending.append(self.model.run(input))
 
     def check_output(self, output):
         """Compare DUT output against expected values."""
         if output is None:
             return False
-        if self.pending is None:
+        if not self.pending:
             return False
-        assert int(output) == int(self.pending), f"Mismatch: got {int(output)} expected {int(self.pending)}"
-        self.pending = None
+        expected = self.pending.pop(0)
+        assert int(output) == int(expected), f"Mismatch: got {int(output)} expected {int(expected)}"
         return True
 
     def drain(self):
-        """Only for queue-based comparisons."""
+        """Template hook for queue-based comparisons."""
         return False
 
 class TestManager:
@@ -131,7 +131,7 @@ class TestManager:
                     self.handshake.drive(False, (0, 0, 0))
 
                 if (cycle % self.out_stride) == 0:
-                    if self.handshake.output_accepted():
+                    if self.scoreboard.pending:
                         if self.scoreboard.check_output(self.handshake.output_value()):
                             self.checked += 1
 

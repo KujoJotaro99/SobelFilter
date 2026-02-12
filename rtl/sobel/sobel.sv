@@ -4,8 +4,8 @@ module sobel
 #(
     parameter WIDTH_P = 8,
     parameter LINE_W_P = 640,
-    parameter FIFO_DEPTH_P = 256,
-    parameter UART_PRESCALE_P = 16'd26
+    parameter FIFO_DEPTH_P = 512,
+    parameter UART_PRESCALE_P = 16'd43
 ) (
     input  logic mclk_i,
     input  logic rstn_i,
@@ -19,8 +19,8 @@ module sobel
         .FEEDBACK_PATH("SIMPLE"),
         .PLLOUT_SELECT("GENCLK"),
         .DIVR(4'b0000),
-        .DIVF(7'b0111111),
-        .DIVQ(3'b101),
+        .DIVF(7'b0110100),
+        .DIVQ(3'b100),
         .FILTER_RANGE(3'b001)
     ) core_pll (
         .PACKAGEPIN(mclk_i),
@@ -125,39 +125,40 @@ module sobel
         .m_axis_tuser()
     );
 
+    logic [23:0] rgb_pipe_data;
+    logic rgb_pipe_valid;
+    logic rgb_pipe_ready;
+
+    elastic #(
+        .WIDTH_P(24)
+    ) rgb_pipe (
+        .clk_i(core_clk),
+        .rstn_i(rstn_sync),
+        .data_i(rgb_data),
+        .valid_i(rgb_valid),
+        .ready_o(rgb_ready),
+        .valid_o(rgb_pipe_valid),
+        .data_o(rgb_pipe_data),
+        .ready_i(rgb_pipe_ready)
+    );
+
     logic gray_valid;
     logic [7:0] gray_data;
     logic gray_ready;
-    logic gray_pipe_valid;
-    logic [7:0] gray_pipe_data;
-    logic gray_pipe_ready;
 
     rgb2gray #(
         .WIDTH_P(WIDTH_P)
     ) rgb2gray_inst (
         .clk_i(core_clk),
         .rstn_i(rstn_sync),
-        .valid_i(rgb_valid),
+        .valid_i(rgb_pipe_valid),
         .ready_i(gray_ready),
         .valid_o(gray_valid),
-        .ready_o(rgb_ready),
-        .red_i(rgb_data[7:0]),
-        .blue_i(rgb_data[23:16]),
-        .green_i(rgb_data[15:8]),
+        .ready_o(rgb_pipe_ready),
+        .red_i(rgb_pipe_data[7:0]),
+        .blue_i(rgb_pipe_data[23:16]),
+        .green_i(rgb_pipe_data[15:8]),
         .gray_o(gray_data)
-    );
-
-    elastic #(
-        .WIDTH_P(WIDTH_P)
-    ) gray_pipe (
-        .clk_i(core_clk),
-        .rstn_i(rstn_sync),
-        .data_i(gray_data),
-        .valid_i(gray_valid),
-        .ready_o(gray_ready),
-        .valid_o(gray_pipe_valid),
-        .data_o(gray_pipe_data),
-        .ready_i(gray_pipe_ready)
     );
 
     logic conv_valid;
@@ -171,11 +172,11 @@ module sobel
     ) sobel_conv2d (
         .clk_i(core_clk),
         .rstn_i(rstn_sync),
-        .valid_i(gray_pipe_valid),
+        .valid_i(gray_valid),
         .ready_i(conv_ready),
-        .data_i(gray_pipe_data),
+        .data_i(gray_data),
         .valid_o(conv_valid),
-        .ready_o(gray_pipe_ready),
+        .ready_o(gray_ready),
         .gx_o(conv_gx),
         .gy_o(conv_gy)
     );
@@ -195,7 +196,7 @@ module sobel
     ) abs_pipe (
         .clk_i(core_clk),
         .rstn_i(rstn_sync),
-        .data_i({gx_abs, gy_abs}),
+        .data_i(abs_data),
         .valid_i(conv_valid),
         .ready_o(conv_ready),
         .valid_o(abs_valid),

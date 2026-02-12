@@ -17,7 +17,7 @@ module magnitude
     logic [WIDTH_P:0] sum;
     logic [2*WIDTH_P-1:0] mag_extended;
 
-    assign sum = gx_i + gy_i;
+    assign sum = {1'b0, gx_i} + {1'b0, gy_i};
     assign mag_extended = {{WIDTH_P{1'b0}}, sum[WIDTH_P-1:0]};
 
     elastic #(

@@ -1,3 +1,6 @@
+SHELL := /bin/bash
+.SHELLFLAGS := -eu -o pipefail -c
+
 TOP := sobel
 RTL_DIR := ../../rtl/sobel
 FILELIST := $(RTL_DIR)/filelist.json
@@ -7,6 +10,9 @@ BUILD := build
 YOSYS := yosys
 NEXTPNR := nextpnr-ice40
 ICEPACK := icepack
+LOG ?= out.txt
+LOG_CMD := tee -a $(LOG)
+SEED ?= 3
 
 DEVICE := up5k
 PACKAGE := sg48
@@ -19,9 +25,12 @@ JSON := $(BUILD)/$(TOP).json
 ASC := $(BUILD)/$(TOP).asc
 BIN := $(BUILD)/$(TOP).bin
 
-.PHONY: all netlist synth place bitstream abstract clean
+.PHONY: all netlist synth place bitstream abstract clean log_init
 
-all: bitstream
+all: log_init bitstream
+
+log_init:
+	@ : > $(LOG)
 
 $(BUILD):
 	mkdir -p $(BUILD)
@@ -29,19 +38,19 @@ $(BUILD):
 netlist: $(JSON)
 
 $(JSON): $(VERILOG_SOURCES) | $(BUILD)
-	$(YOSYS) -p "read_verilog -sv $(VERILOG_SOURCES); synth_ice40 -top $(TOP) -json $(JSON)"
+	$(YOSYS) -p "read_verilog -sv $(VERILOG_SOURCES); synth_ice40 -top $(TOP) -json $(JSON)" 2>&1 | $(LOG_CMD)
 
 synth: $(JSON)
 
 place: $(ASC)
 
 $(ASC): $(JSON) $(PCF) | $(BUILD)
-	$(NEXTPNR) --$(DEVICE) --package $(PACKAGE) --json $(JSON) --pcf $(PCF) --asc $(ASC)
+	$(NEXTPNR) --$(DEVICE) --package $(PACKAGE) --json $(JSON) --pcf $(PCF) --asc $(ASC) --seed $(SEED) 2>&1 | $(LOG_CMD)
 
 bitstream: $(BIN)
 
 $(BIN): $(ASC) | $(BUILD)
-	$(ICEPACK) $(ASC) $(BIN)
+	$(ICEPACK) $(ASC) $(BIN) 2>&1 | $(LOG_CMD)
 
 abstract:
 	netlistsvg $(JSON) -o $(BUILD)/$(TOP).svg
