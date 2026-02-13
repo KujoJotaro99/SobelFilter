@@ -182,9 +182,29 @@ module sobel
     );
 
     logic [WIDTH_P-1:0] gx_abs;
+    logic [WIDTH_P-1:0] gy_abs;
     logic conv_ready;
 
     assign gx_abs = conv_gx[2*WIDTH_P-1] ? -conv_gx : conv_gx;
+    assign gy_abs = conv_gy[2*WIDTH_P-1] ? -conv_gy : conv_gy;
+
+    logic mag_valid;
+    logic mag_ready;
+    logic [2*WIDTH_P-1:0] mag_data;
+
+    magnitude #(
+        .WIDTH_P(WIDTH_P)
+    ) magnitude_inst (
+        .clk_i(core_clk),
+        .rstn_i(rstn_sync),
+        .valid_i(conv_valid),
+        .ready_i(mag_ready),
+        .gx_i(gx_abs),
+        .gy_i(gy_abs),
+        .valid_o(mag_valid),
+        .ready_o(conv_ready),
+        .mag_o(mag_data)
+    );
 
     logic [23:0] mag_pipe_data;
     logic mag_pipe_valid;
@@ -195,9 +215,9 @@ module sobel
     ) mag_pipe (
         .clk_i(core_clk),
         .rstn_i(rstn_sync),
-        .data_i({3{gx_abs}}),
-        .valid_i(conv_valid),
-        .ready_o(conv_ready),
+        .data_i({3{mag_data[WIDTH_P-1:0]}}),
+        .valid_i(mag_valid),
+        .ready_o(mag_ready),
         .valid_o(mag_pipe_valid),
         .data_o(mag_pipe_data),
         .ready_i(mag_pipe_ready)
