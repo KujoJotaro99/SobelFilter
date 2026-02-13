@@ -25,18 +25,18 @@ module sync_ram_block #(
         if (filename_p != "") begin
             $readmemb(filename_p, mem_array);
         end
-// `ifndef SYNTHESIS
-//         for (i = 0; i < DEPTH_P; i = i + 1) begin
-//             $dumpvars(0, mem_array[i]);
-//         end
-// `endif
+`ifndef SYNTHESIS
+        for (i = 0; i < DEPTH_P; i = i + 1) begin
+            $dumpvars(0, mem_array[i]);
+        end
+`endif
         $display("%m: depth_p is %d, width_p is %d", DEPTH_P, WIDTH_P);
     end
 
     always_ff @(posedge clk_i) begin
         if (!rstn_i) begin
-            data_a_o <= '0;
-            data_b_o <= '0;
+            // data_a_o <= '0;
+            // data_b_o <= '0;
         end else begin
             if (rd_en_a_i) begin
                 data_a_o <= mem_array[rd_addr_a_i];

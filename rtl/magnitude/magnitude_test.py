@@ -15,16 +15,17 @@ CLK_PERIOD_NS = 10
 # drivers
 
 class ModelManager:
-    """Reference magnitude model using (gx+gy) lower bits."""
+    """Reference magnitude model using top-5-bit LUT max."""
     def __init__(self, dut):
         self.width = int(dut.WIDTH_P.value)
 
     def run(self, input):
         """Advance model state for one input and return expected output."""
-        # input format [gx, gy]
         gx, gy = input
-        mask = (1 << self.width) - 1
-        return int((gx + gy) & mask)
+        shift = self.width - 5
+        gx_idx = (int(gx) >> shift) & 0x1F
+        gy_idx = (int(gy) >> shift) & 0x1F
+        return int(max(gx_idx, gy_idx))
 
 class InputManager:
     """Drives input stream into the DUT with a valid buffer."""

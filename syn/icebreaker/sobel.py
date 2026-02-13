@@ -18,7 +18,7 @@ except ImportError as exc:  # pragma: no cover
 
 DEFAULT_W = 640
 DEFAULT_H = 480
-DEFAULT_BAUD = 115200
+DEFAULT_BAUD = 115385
 DEFAULT_CHUNK = 2048
 
 
@@ -50,21 +50,18 @@ def write_all(ser, payload, chunk_size, delay_s=0.0):
             time.sleep(delay_s)
 
 
-def read_background(ser, count, timeout_s):
+def read_background(ser, count):
     data = bytearray()
     stop = threading.Event()
 
     def _worker():
-        deadline = time.time() + timeout_s
-        while not stop.is_set() and time.time() < deadline:
+        while not stop.is_set() and len(data) < count:
             remaining = count - len(data)
-            if remaining <= 0:
-                break
             chunk = ser.read(min(4096, remaining))
             if chunk:
                 data.extend(chunk)
             else:
-                time.sleep(0.005)
+                time.sleep(0.002)
 
     t = threading.Thread(target=_worker, daemon=True)
     t.start()
@@ -94,13 +91,11 @@ def main():
     expected_in_len = len(payload)
     expected_out_len = width * height * 3
 
-    timeout_s = compute_timeout(max(expected_in_len, expected_out_len), baud)
-
     with serial.Serial(
         args.port,
         baud,
         timeout=0.1,
-        write_timeout=timeout_s,
+        write_timeout=None,
         rtscts=False,
         dsrdtr=False,
         xonxoff=False,
@@ -111,24 +106,14 @@ def main():
         ser.reset_input_buffer()
         ser.reset_output_buffer()
 
-        rx_buf, rx_stop, rx_thread = read_background(ser, expected_out_len, timeout_s)
+        rx_buf, rx_stop, rx_thread = read_background(ser, expected_out_len)
         write_all(ser, payload, chunk, chunk_delay)
 
-        deadline = time.time() + timeout_s
-        while len(rx_buf) < expected_out_len and time.time() < deadline:
-            time.sleep(0.05)
+        while len(rx_buf) < expected_out_len:
+            time.sleep(0.01)
         rx_stop.set()
         rx_thread.join(timeout=1.0)
         rx = bytes(rx_buf)
-
-    if len(rx) != expected_out_len:
-        partial = Path("sobel_out_partial.png")
-        bytes_per_row = width * 3
-        if len(rx) >= bytes_per_row:
-            rows = len(rx) // bytes_per_row
-            partial_img = Image.frombytes("RGB", (width, rows), rx[: rows * bytes_per_row])
-            partial_img.save(partial)
-        raise SystemExit(f"Short read: got {len(rx)} bytes, expected {expected_out_len}. Wrote {partial}")
 
     warmup_pixels = (2 * width + 2)
     warmup_bytes = warmup_pixels * 3

@@ -5,7 +5,7 @@ module sobel
     parameter WIDTH_P = 8,
     parameter LINE_W_P = 640,
     parameter FIFO_DEPTH_P = 512,
-    parameter UART_PRESCALE_P = 16'd43
+    parameter UART_PRESCALE_P = 16'd26
 ) (
     input  logic mclk_i,
     input  logic rstn_i,
@@ -19,8 +19,8 @@ module sobel
         .FEEDBACK_PATH("SIMPLE"),
         .PLLOUT_SELECT("GENCLK"),
         .DIVR(4'b0000),
-        .DIVF(7'b0110100),
-        .DIVQ(3'b100),
+        .DIVF(7'b0111111),
+        .DIVQ(3'b101),
         .FILTER_RANGE(3'b001)
     ) core_pll (
         .PACKAGEPIN(mclk_i),
@@ -182,61 +182,22 @@ module sobel
     );
 
     logic [WIDTH_P-1:0] gx_abs;
-    logic [WIDTH_P-1:0] gy_abs;
-    logic [2*WIDTH_P-1:0] abs_data;
-    logic abs_valid;
-    logic abs_ready;
+    logic conv_ready;
 
     assign gx_abs = conv_gx[2*WIDTH_P-1] ? -conv_gx : conv_gx;
-    assign gy_abs = conv_gy[2*WIDTH_P-1] ? -conv_gy : conv_gy;
-    assign abs_data = {gx_abs, gy_abs};
 
-    elastic #(
-        .WIDTH_P(2*WIDTH_P)
-    ) abs_pipe (
-        .clk_i(core_clk),
-        .rstn_i(rstn_sync),
-        .data_i(abs_data),
-        .valid_i(conv_valid),
-        .ready_o(conv_ready),
-        .valid_o(abs_valid),
-        .data_o(abs_data),
-        .ready_i(abs_ready)
-    );
-
-    logic mag_valid;
-    logic mag_ready;
-    logic [2*WIDTH_P-1:0] mag_data;
-
-    magnitude #(
-        .WIDTH_P(WIDTH_P)
-    ) magnitude_inst (
-        .clk_i(core_clk),
-        .rstn_i(rstn_sync),
-        .valid_i(abs_valid),
-        .ready_i(mag_ready),
-        .gx_i(abs_data[2*WIDTH_P-1:WIDTH_P]),
-        .gy_i(abs_data[WIDTH_P-1:0]),
-        .valid_o(mag_valid),
-        .ready_o(abs_ready),
-        .mag_o(mag_data)
-    );
-
-    logic [23:0] mag_rgb;
     logic [23:0] mag_pipe_data;
     logic mag_pipe_valid;
     logic mag_pipe_ready;
-
-    assign mag_rgb = {3{mag_data[WIDTH_P-1:0]}};
 
     elastic #(
         .WIDTH_P(24)
     ) mag_pipe (
         .clk_i(core_clk),
         .rstn_i(rstn_sync),
-        .data_i(mag_rgb),
-        .valid_i(mag_valid),
-        .ready_o(mag_ready),
+        .data_i({3{gx_abs}}),
+        .valid_i(conv_valid),
+        .ready_o(conv_ready),
         .valid_o(mag_pipe_valid),
         .data_o(mag_pipe_data),
         .ready_i(mag_pipe_ready)
