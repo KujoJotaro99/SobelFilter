@@ -5,12 +5,12 @@ module fifo_sync
     parameter WIDTH_P = 8,
     parameter DEPTH_P = 16
 ) (
-    input logic [0:0] clk_i, 
+    input logic [0:0] clk_i,
     input logic [0:0] rstn_i,
     input logic [WIDTH_P-1:0] data_i,
-    input logic [0:0] valid_i, 
+    input logic [0:0] valid_i,
     input logic [0:0] ready_i,
-    output logic [0:0] valid_o, 
+    output logic [0:0] valid_o,
     output logic [0:0] ready_o,
     output logic [WIDTH_P-1:0] data_o
 );

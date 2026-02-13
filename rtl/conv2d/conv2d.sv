@@ -5,13 +5,13 @@ module conv2d
     parameter WIDTH_P = 8,
     parameter DEPTH_P = 16
 )(
-    input  logic clk_i,
-    input  logic rstn_i,
-    input  logic valid_i,
-    input  logic ready_i,
-    input  logic [WIDTH_P-1:0] data_i,
-    output logic valid_o,
-    output logic ready_o,
+    input logic [0:0] clk_i,
+    input logic [0:0] rstn_i,
+    input logic [0:0] valid_i,
+    input logic [0:0] ready_i,
+    input logic [WIDTH_P-1:0] data_i,
+    output logic [0:0] valid_o,
+    output logic [0:0] ready_o,
     output logic signed [(2*WIDTH_P)-1:0] gx_o,
     output logic signed [(2*WIDTH_P)-1:0] gy_o
 );
@@ -63,45 +63,36 @@ module conv2d
         end
     end
 
-    logic signed [(2*WIDTH_P)-1:0] p00_s;
-    logic signed [(2*WIDTH_P)-1:0] p01_s;
-    logic signed [(2*WIDTH_P)-1:0] p02_s;
-    logic signed [(2*WIDTH_P)-1:0] p10_s;
-    logic signed [(2*WIDTH_P)-1:0] p12_s;
-    logic signed [(2*WIDTH_P)-1:0] p20_s;
-    logic signed [(2*WIDTH_P)-1:0] p21_s;
-    logic signed [(2*WIDTH_P)-1:0] p22_s;
-    logic signed [(2*WIDTH_P)-1:0] gx_pos;
-    logic signed [(2*WIDTH_P)-1:0] gx_neg;
-    logic signed [(2*WIDTH_P)-1:0] gy_pos;
-    logic signed [(2*WIDTH_P)-1:0] gy_neg;
-    logic signed [(2*WIDTH_P)-1:0] gx_comb;
-    logic signed [(2*WIDTH_P)-1:0] gy_comb;
+    logic signed [WIDTH_P:0] dx0;
+    logic signed [WIDTH_P:0] dx1;
+    logic signed [WIDTH_P:0] dx2;
+    logic signed [WIDTH_P:0] dy0;
+    logic signed [WIDTH_P:0] dy1;
+    logic signed [WIDTH_P:0] dy2;
+    logic signed [WIDTH_P+1:0] gx_sum0;
+    logic signed [WIDTH_P+1:0] gy_sum0;
+    logic signed [WIDTH_P+2:0] gx_comb;
+    logic signed [WIDTH_P+2:0] gy_comb;
 
-    assign p00_s = $signed({1'b0, conv_window[0][0]});
-    assign p01_s = $signed({1'b0, conv_window[0][1]});
-    assign p02_s = $signed({1'b0, conv_window[0][2]});
-    assign p10_s = $signed({1'b0, conv_window[1][0]});
-    assign p12_s = $signed({1'b0, conv_window[1][2]});
-    assign p20_s = $signed({1'b0, conv_window[2][0]});
-    assign p21_s = $signed({1'b0, conv_window[2][1]});
-    assign p22_s = $signed({1'b0, conv_window[2][2]});
+    assign dx0 = $signed({1'b0, conv_window[0][2]}) - $signed({1'b0, conv_window[0][0]});
+    assign dx1 = $signed({1'b0, conv_window[1][2]}) - $signed({1'b0, conv_window[1][0]});
+    assign dx2 = $signed({1'b0, conv_window[2][2]}) - $signed({1'b0, conv_window[2][0]});
+    assign dy0 = $signed({1'b0, conv_window[2][0]}) - $signed({1'b0, conv_window[0][0]});
+    assign dy1 = $signed({1'b0, conv_window[2][1]}) - $signed({1'b0, conv_window[0][1]});
+    assign dy2 = $signed({1'b0, conv_window[2][2]}) - $signed({1'b0, conv_window[0][2]});
 
-    assign gx_pos = p02_s + (p12_s <<< 1) + p22_s;
-    assign gx_neg = p00_s + (p10_s <<< 1) + p20_s;
-    assign gy_pos = p20_s + (p21_s <<< 1) + p22_s;
-    assign gy_neg = p00_s + (p01_s <<< 1) + p02_s;
-
-    assign gx_comb = gx_pos - gx_neg;
-    assign gy_comb = gy_pos - gy_neg;
+    assign gx_sum0 = dx0 + dx2;
+    assign gy_sum0 = dy0 + dy2;
+    assign gx_comb = gx_sum0 + (dx1 <<< 1);
+    assign gy_comb = gy_sum0 + (dy1 <<< 1);
 
     always_ff @(posedge clk_i) begin
         if (!rstn_i) begin
             gx_o <= '0;
             gy_o <= '0;
         end else begin
-            gx_o <= gx_comb;
-            gy_o <= gy_comb;
+            gx_o <= {{(2*WIDTH_P-(WIDTH_P+3)){gx_comb[WIDTH_P+2]}}, gx_comb};
+            gy_o <= {{(2*WIDTH_P-(WIDTH_P+3)){gy_comb[WIDTH_P+2]}}, gy_comb};
         end
     end
 

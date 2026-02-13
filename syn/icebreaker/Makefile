@@ -6,15 +6,13 @@ RTL_DIR := ../../rtl/sobel
 FILELIST := $(RTL_DIR)/filelist.json
 PCF := icebreaker.pcf
 BUILD := build
-MAG_LUT_SRC := ../../rtl/magnitude/magnitude_lut.mem
-MAG_LUT := magnitude_lut.mem
 
 YOSYS := yosys
 NEXTPNR := nextpnr-ice40
 ICEPACK := icepack
 LOG ?= out.txt
 LOG_CMD := tee -a $(LOG)
-SEED ?= 3
+SEED ?= 1
 
 DEVICE := up5k
 PACKAGE := sg48
@@ -37,13 +35,10 @@ log_init:
 $(BUILD):
 	mkdir -p $(BUILD)
 
-netlist: $(MAG_LUT) $(JSON)
+netlist: $(JSON)
 
-$(JSON): $(VERILOG_SOURCES) $(MAG_LUT) | $(BUILD)
+$(JSON): $(VERILOG_SOURCES) | $(BUILD)
 	$(YOSYS) -p "read_verilog -sv $(VERILOG_SOURCES); synth_ice40 -top $(TOP) -json $(JSON)" 2>&1 | $(LOG_CMD)
-
-$(MAG_LUT): $(MAG_LUT_SRC)
-	cp $(MAG_LUT_SRC) $(MAG_LUT)
 
 synth: $(JSON)
 
@@ -70,3 +65,4 @@ abstract:
 clean:
 	rm -rf $(BUILD)
 	rm -f $(MAG_LUT)
+	rm -rf *.txt

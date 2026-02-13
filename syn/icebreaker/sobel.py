@@ -4,39 +4,26 @@ import argparse
 import time
 import threading
 from pathlib import Path
-
-try:
-    import serial
-except ImportError as exc:  # pragma: no cover
-    raise SystemExit("pyserial is required: pip install pyserial") from exc
-
-try:
-    from PIL import Image
-except ImportError as exc:  # pragma: no cover
-    raise SystemExit("Pillow is required: pip install pillow") from exc
-
+import serial
+from PIL import Image
 
 DEFAULT_W = 640
 DEFAULT_H = 480
-DEFAULT_BAUD = 115385
+DEFAULT_BAUD = 113636
 DEFAULT_CHUNK = 2048
-
 
 def resolve_default_image():
     candidate = Path(__file__).resolve().parents[2] / "jupyter" / "car.jpg"
     return candidate if candidate.exists() else None
 
-
 def load_image(path, width, height):
     img = Image.open(path).convert("RGB")
     return img.resize((width, height), Image.BILINEAR)
 
-
 def compute_timeout(byte_count, baud):
-    bits = byte_count * 10  # start + 8 data + stop
+    bits = byte_count * 10 
     seconds = bits / float(baud)
     return max(5.0, seconds * 1.5 + 2.0)
-
 
 def write_all(ser, payload, chunk_size, delay_s=0.0):
     total = len(payload)
@@ -48,7 +35,6 @@ def write_all(ser, payload, chunk_size, delay_s=0.0):
         offset = end
         if delay_s:
             time.sleep(delay_s)
-
 
 def read_background(ser, count):
     data = bytearray()
@@ -67,7 +53,6 @@ def read_background(ser, count):
     t.start()
     return data, stop, t
 
-
 def main():
     parser = argparse.ArgumentParser(description="Send image over UART and read it back.")
     parser.add_argument("port", help="Serial port (e.g. /dev/ttyUSB0)")
@@ -76,8 +61,6 @@ def main():
     args = parser.parse_args()
 
     img_path = args.image or resolve_default_image()
-    if img_path is None:
-        raise SystemExit("No image specified and default car.jpg not found")
 
     width = DEFAULT_W
     height = DEFAULT_H
@@ -123,7 +106,6 @@ def main():
     out_img.save("sobel_out.png")
 
     print("Wrote sobel_out.png (640x480)")
-
 
 if __name__ == "__main__":
     main()
