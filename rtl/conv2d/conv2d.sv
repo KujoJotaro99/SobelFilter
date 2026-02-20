@@ -15,8 +15,8 @@ module conv2d
     output logic signed [(2*WIDTH_P)-1:0] gy_o
 );
     logic [WIDTH_P-1:0] ram_row0, ram_row1;
-    logic line_valid;
-    logic sobel_ready;
+    logic [0:0] line_valid;
+    logic [0:0] sobel_ready;
 
     ramdelaybuffer #(
         .WIDTH_P(WIDTH_P),

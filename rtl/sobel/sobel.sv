@@ -13,7 +13,7 @@ module sobel
     output logic [0:0] uart_txd_o
 );
 
-    logic core_clk;
+    logic [0:0] core_clk;
 
     SB_PLL40_PAD #(
         .FEEDBACK_PATH("SIMPLE"),
@@ -37,7 +37,7 @@ module sobel
         .SCLK(1'b0)
     );
 
-    logic rstn_sync;
+    logic [0:0] rstn_sync;
 
     sync2 #(
         .WIDTH_P(1)
@@ -49,12 +49,12 @@ module sobel
     );
 
     logic [7:0] uart_rx_data;
-    logic uart_rx_valid;
-    logic uart_rx_ready;
+    logic [0:0] uart_rx_valid;
+    logic [0:0] uart_rx_ready;
 
     logic [7:0] uart_tx_data;
-    logic uart_tx_valid;
-    logic uart_tx_ready;
+    logic [0:0] uart_tx_valid;
+    logic [0:0] uart_tx_ready;
 
     uart #(
         .DATA_WIDTH(8)
@@ -77,8 +77,8 @@ module sobel
     );
 
     logic [7:0] rx_fifo_data;
-    logic rx_fifo_valid;
-    logic rx_fifo_ready;
+    logic [0:0] rx_fifo_valid;
+    logic [0:0] rx_fifo_ready;
 
     fifo_sync #(
         .WIDTH_P(8),
@@ -95,8 +95,8 @@ module sobel
     );
 
     logic [23:0] rgb_data;
-    logic rgb_valid;
-    logic rgb_ready;
+    logic [0:0] rgb_valid;
+    logic [0:0] rgb_ready;
 
     axis_adapter #(
         .S_DATA_WIDTH(8),
@@ -126,8 +126,8 @@ module sobel
     );
 
     logic [23:0] rgb_pipe_data;
-    logic rgb_pipe_valid;
-    logic rgb_pipe_ready;
+    logic [0:0] rgb_pipe_valid;
+    logic [0:0] rgb_pipe_ready;
 
     elastic #(
         .WIDTH_P(24)
@@ -142,9 +142,9 @@ module sobel
         .ready_i(rgb_pipe_ready)
     );
 
-    logic gray_valid;
+    logic [0:0] gray_valid;
     logic [7:0] gray_data;
-    logic gray_ready;
+    logic [0:0] gray_ready;
 
     rgb2gray #(
         .WIDTH_P(WIDTH_P)
@@ -161,20 +161,20 @@ module sobel
         .gray_o(gray_data)
     );
 
-    logic box1_valid;
-    logic box1_ready;
+    logic [0:0] box1_valid;
+    logic [0:0] box1_ready;
     logic signed [(2*WIDTH_P)-1:0] box1_gx;
     logic signed [(2*WIDTH_P)-1:0] box1_gy;
     logic [WIDTH_P-1:0] box1_pixel;
 
-    logic box2_valid;
-    logic box2_ready;
+    logic [0:0] box2_valid;
+    logic [0:0] box2_ready;
     logic signed [(2*WIDTH_P)-1:0] box2_gx;
     logic signed [(2*WIDTH_P)-1:0] box2_gy;
     logic [WIDTH_P-1:0] box2_pixel;
 
-    logic box3_valid;
-    logic box3_ready;
+    logic [0:0] box3_valid;
+    logic [0:0] box3_ready;
     logic signed [(2*WIDTH_P)-1:0] box3_gx;
     logic signed [(2*WIDTH_P)-1:0] box3_gy;
     logic [WIDTH_P-1:0] box3_pixel;
@@ -230,8 +230,8 @@ module sobel
 
     assign box3_pixel = box3_gx[WIDTH_P-1:0];
 
-    logic conv_valid;
-    logic conv_ready;
+    logic [0:0] conv_valid;
+    logic [0:0] conv_ready;
     logic signed [(2*WIDTH_P)-1:0] conv_gx;
     logic signed [(2*WIDTH_P)-1:0] conv_gy;
 
@@ -256,8 +256,8 @@ module sobel
     assign gx_abs = conv_gx[2*WIDTH_P-1] ? -conv_gx : conv_gx;
     assign gy_abs = conv_gy[2*WIDTH_P-1] ? -conv_gy : conv_gy;
 
-    logic mag_valid;
-    logic mag_ready;
+    logic [0:0] mag_valid;
+    logic [0:0] mag_ready;
     logic [2*WIDTH_P-1:0] mag_data;
 
     magnitude #(
@@ -275,8 +275,8 @@ module sobel
     );
 
     logic [23:0] mag_pipe_data;
-    logic mag_pipe_valid;
-    logic mag_pipe_ready;
+    logic [0:0] mag_pipe_valid;
+    logic [0:0] mag_pipe_ready;
 
     elastic #(
         .WIDTH_P(24)

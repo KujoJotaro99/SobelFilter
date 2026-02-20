@@ -31,8 +31,8 @@ module rgb2gray
         logic [WIDTH_P-1:0] red_term, green_term, blue_term;
         logic [3*WIDTH_P-1:0] terms_data;
         logic [3*WIDTH_P-1:0] terms_data_o;
-        logic valid_mid;
-        logic ready_mid;
+        logic [0:0] valid_mid;
+        logic [0:0] ready_mid;
     // approximate shifts as a mac shift operation
     assign red_term = (red_i >> RED_SHIFT_1) + (red_i >> RED_SHIFT_2);
     assign green_term = (green_i >> GREEN_SHIFT_1) + (green_i >> GREEN_SHIFT_2);

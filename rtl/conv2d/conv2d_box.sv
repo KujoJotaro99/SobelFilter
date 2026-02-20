@@ -19,8 +19,8 @@ module conv2d_box
     logic [WIDTH_P-1:0] ram_row0;
     logic [WIDTH_P-1:0] ram_row1;
 
-    logic box_valid;
-    logic box_ready;
+    logic [0:0] box_valid;
+    logic [0:0] box_ready;
 
     ramdelaybuffer #(
         .WIDTH_P(WIDTH_P),
