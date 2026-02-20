@@ -1,4 +1,4 @@
-SobelFilter (UART, iCEBreaker UP5K)
+SobelFilter
 
 UART-streamed Sobel edge detection pipeline for iCE40 UP5K FPGA. Image data is transmitted over serial, processed on the FPGA, and streamed back as edge-detected output.
 
