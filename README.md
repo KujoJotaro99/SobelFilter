@@ -1,8 +1,8 @@
-###SobelFilter
+# SobelFilter
 
 UART-streamed Sobel edge detection pipeline for iCE40 UP5K FPGA. Image data is transmitted over serial, processed on the FPGA, and streamed back as edge-detected output.
 
-Processing Pipeline
+## Processing Pipeline
 
   UART RX
   8-to-24-bit byte packing
@@ -12,7 +12,7 @@ Processing Pipeline
   Gradient magnitude calculation
   UART TX
 
-Project Specifications
+## Project Specifications
 
 Target Device: Lattice iCE40 UP5K
 
@@ -28,7 +28,7 @@ Clock Source: 12 MHz external oscillator via PLL
 
 Core Clock: 30 MHz (PLL multiplied 2x, divided by 1)
 
-Design Features
+## Design Features
 
 Elastic pipelining in convolution and magnitude stages for timing optimization
 Synchronous FIFO for input/output buffering
@@ -36,11 +36,11 @@ Circular line buffer for efficient 3x3 window management
 Gaussian matrix blur for noise reduction
 Handshake protocol for rate-decoupled data flow
 
-Critical Path Analysis
+## Critical Path Analysis
 
 The synthesis report identifies a single critical path in the UART TX prescaler divider logic.
 
-Example Outputs
+## Example Outputs
 
 car.jpg
 ![](jupyter/car.jpg)
