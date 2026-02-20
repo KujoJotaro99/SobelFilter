@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-"""UART host script for the Sobel pipeline."""
 import argparse
 import time
 import threading
@@ -9,21 +8,16 @@ from PIL import Image
 
 DEFAULT_W = 640
 DEFAULT_H = 480
-DEFAULT_BAUD = 113636
+DEFAULT_BAUD = 220588
 DEFAULT_CHUNK = 2048
 
 def resolve_default_image():
-    candidate = Path(__file__).resolve().parents[2] / "jupyter" / "car.jpg"
+    candidate = Path(__file__).resolve().parents[2] / "jupyter" / "mountain.jpg"
     return candidate if candidate.exists() else None
 
 def load_image(path, width, height):
     img = Image.open(path).convert("RGB")
     return img.resize((width, height), Image.BILINEAR)
-
-def compute_timeout(byte_count, baud):
-    bits = byte_count * 10 
-    seconds = bits / float(baud)
-    return max(5.0, seconds * 1.5 + 2.0)
 
 def write_all(ser, payload, chunk_size, delay_s=0.0):
     total = len(payload)
@@ -61,22 +55,16 @@ def main():
     args = parser.parse_args()
 
     img_path = args.image or resolve_default_image()
+    if img_path is None:
+        raise SystemExit("No image specified and default car.jpg not found")
 
-    width = DEFAULT_W
-    height = DEFAULT_H
-    baud = DEFAULT_BAUD
-    pre_delay = 0.2
-    chunk = DEFAULT_CHUNK
-    chunk_delay = 0.0
-
-    img = load_image(img_path, width, height)
+    img = load_image(img_path, DEFAULT_W, DEFAULT_H)
     payload = img.tobytes()
-    expected_in_len = len(payload)
-    expected_out_len = width * height * 3
+    expected_out_len = DEFAULT_W * DEFAULT_H * 3
 
     with serial.Serial(
         args.port,
-        baud,
+        DEFAULT_BAUD,
         timeout=0.1,
         write_timeout=None,
         rtscts=False,
@@ -85,12 +73,12 @@ def main():
     ) as ser:
         ser.dtr = False
         ser.rts = False
-        time.sleep(pre_delay)
+        time.sleep(0.2)
         ser.reset_input_buffer()
         ser.reset_output_buffer()
 
         rx_buf, rx_stop, rx_thread = read_background(ser, expected_out_len)
-        write_all(ser, payload, chunk, chunk_delay)
+        write_all(ser, payload, DEFAULT_CHUNK, 0.0)
 
         while len(rx_buf) < expected_out_len:
             time.sleep(0.01)
@@ -98,11 +86,11 @@ def main():
         rx_thread.join(timeout=1.0)
         rx = bytes(rx_buf)
 
-    warmup_pixels = (2 * width + 2)
+    warmup_pixels = (2 * DEFAULT_W + 2)
     warmup_bytes = warmup_pixels * 3
     rx = rx[warmup_bytes:] + b"\x00" * warmup_bytes
 
-    out_img = Image.frombytes("RGB", (width, height), rx)
+    out_img = Image.frombytes("RGB", (DEFAULT_W, DEFAULT_H), rx)
     out_img.save("sobel_out.png")
 
     print("Wrote sobel_out.png (640x480)")

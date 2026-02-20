@@ -1,4 +1,3 @@
-"""coverage reset, up/down, enable, wrap"""
 import random
 
 import cocotb
@@ -7,10 +6,7 @@ from cocotb.triggers import FallingEdge, Timer
 
 CLK_PERIOD_NS = 10
 
-# drivers
-
 class ModelManager:
-    """Reference counter model with wrap and enable behavior."""
     def __init__(self, dut):
         try:
             self.width = int(dut.WIDTH_P.value)
@@ -29,7 +25,6 @@ class ModelManager:
         self.count = int(rstn_data) & self.mask
 
     def run(self, input):
-        """Advance model state for one input and return expected output."""
         en, up, down = input
         en = 1 if en else 0
         up = 1 if up else 0
@@ -50,7 +45,6 @@ class ModelManager:
         return self.count
 
 class InputManager:
-    """Drives input stream into the DUT with a valid buffer."""
     def __init__(self, stream):
         self.data = list(stream)
         self.idx = 0
@@ -58,18 +52,15 @@ class InputManager:
         self.current = None
 
     def has_next(self):
-        """Return True when more inputs remain."""
         return self.idx < len(self.data)
 
     def drive(self, handshake):
-        """Drive the current input and valid flag."""
         if not self.valid and self.has_next():
             self.current = self.data[self.idx]
             self.valid = True
         handshake.drive(self.valid, self.current if self.valid else (0, 0, 0))
 
     def accept(self):
-        """Consume the current input after acceptance."""
         if self.valid:
             self.idx += 1
             self.valid = False
@@ -77,31 +68,35 @@ class InputManager:
         return None
 
 class ScoreManager:
-    """Tracks expected outputs and compares against DUT results."""
     def __init__(self, model):
         self.model = model
         self.pending = []
+        self.outputs_received = 0
+        self.pipeline_delay = 0
 
     def update_expected(self, input):
-        """Queue expected outputs for a new input."""
         self.pending.append(self.model.run(input))
 
     def check_output(self, output):
-        """Compare DUT output against expected values."""
         if output is None:
             return False
+
+        self.outputs_received += 1
+
+        if self.outputs_received <= self.pipeline_delay:
+            return False
+
         if not self.pending:
             return False
+
         expected = self.pending.pop(0)
         assert int(output) == int(expected), f"Mismatch: got {int(output)} expected {int(expected)}"
         return True
 
     def drain(self):
-        """Template hook for queue-based comparisons."""
         return False
 
 class TestManager:
-    """Coordinates stimulus, model updates, and checks."""
     def __init__(self, dut, stream):
         self.handshake = HandshakeManager(dut)
         self.input = InputManager(stream)
@@ -113,7 +108,6 @@ class TestManager:
         self.out_stride = 1
 
     async def run(self):
-        """Main loop coordinating input and output checks."""
         try:
             self.input.drive(self.handshake)
             cycle = 0
@@ -141,13 +135,11 @@ class TestManager:
             self.handshake.dut.down_i.value = 0
 
 class HandshakeManager:
-    """Wraps DUT signal driving and sampling."""
     def __init__(self, dut):
         self.dut = dut
         self.last_valid = False
 
     def drive(self, valid, data):
-        """Drive DUT inputs for this cycle."""
         en, up, down = data
         self.last_valid = bool(valid)
 
@@ -156,29 +148,22 @@ class HandshakeManager:
         self.dut.down_i.value = 1 if down else 0
 
     def input_accepted(self):
-        """Return True when input handshake succeeds."""
         return self.last_valid
 
     def output_accepted(self):
-        """Return True when output handshake succeeds."""
         return self.last_valid
 
     def output_value(self):
-        """Sample DUT outputs for comparison."""
         if not self.dut.count_o.value.is_resolvable:
             return None
         return int(self.dut.count_o.value)
 
-# unit tests
-
-async def counter_clock_test(dut):
-    """Clock gen"""
+async def clock_test(dut):
     await Timer(100, unit="ns")
     cocotb.start_soon(Clock(dut.clk_i, CLK_PERIOD_NS, unit="ns").start())
     await Timer(10, unit="ns")
 
-async def init_dut(dut):
-    """drive known defaults"""
+async def reset_test(dut):
     dut.rstn_i.value = 0
     dut.rstn_data_i.value = 0
     dut.en_i.value = 1
@@ -192,8 +177,8 @@ async def init_dut(dut):
 
 @cocotb.test(skip=False)
 async def test_counter_stream(dut):
-    await counter_clock_test(dut)
-    await init_dut(dut)
+    await clock_test(dut)
+    await reset_test(dut)
 
     model = ModelManager(dut)
     model.reset(0)

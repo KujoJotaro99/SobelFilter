@@ -18,7 +18,6 @@ module conv2d
 
     logic [WIDTH_P-1:0] ram_row0, ram_row1;
 
-    // likely need some kind of delayed valid with the ram because contents not cleared between test, only conv window is cleared so the circular buffer may dump wrong values
     ramdelaybuffer #(
         .WIDTH_P(WIDTH_P),
         .DELAY_P(2*DEPTH_P-1),
@@ -71,6 +70,8 @@ module conv2d
     logic signed [WIDTH_P:0] dy2;
     logic signed [WIDTH_P+1:0] gx_sum0;
     logic signed [WIDTH_P+1:0] gy_sum0;
+    logic signed [WIDTH_P:0] dx1_shift;
+    logic signed [WIDTH_P:0] dy1_shift;
     logic signed [WIDTH_P+2:0] gx_comb;
     logic signed [WIDTH_P+2:0] gy_comb;
 
@@ -81,16 +82,35 @@ module conv2d
     assign dy1 = $signed({1'b0, conv_window[2][1]}) - $signed({1'b0, conv_window[0][1]});
     assign dy2 = $signed({1'b0, conv_window[2][2]}) - $signed({1'b0, conv_window[0][2]});
 
-    assign gx_sum0 = dx0 + dx2;
-    assign gy_sum0 = dy0 + dy2;
-    assign gx_comb = gx_sum0 + (dx1 <<< 1);
-    assign gy_comb = gy_sum0 + (dy1 <<< 1);
+    logic sobel_valid;
+    logic signed [WIDTH_P:0] dx0_pipe, dx1_pipe, dx2_pipe;
+    logic signed [WIDTH_P:0] dy0_pipe, dy1_pipe, dy2_pipe;
+
+    elastic #(
+        .WIDTH_P(6*(WIDTH_P+1))
+    ) sobel_pipe (
+        .clk_i(clk_i),
+        .rstn_i(rstn_i),
+        .data_i({dx0, dx1, dx2, dy0, dy1, dy2}),
+        .valid_i(valid_o),
+        .ready_o(),
+        .valid_o(sobel_valid),
+        .data_o({dx0_pipe, dx1_pipe, dx2_pipe, dy0_pipe, dy1_pipe, dy2_pipe}),
+        .ready_i(ready_i)
+    );
+
+    assign gx_sum0 = dx0_pipe + dx2_pipe;
+    assign gy_sum0 = dy0_pipe + dy2_pipe;
+    assign dx1_shift = dx1_pipe <<< 1;
+    assign dy1_shift = dy1_pipe <<< 1;
+    assign gx_comb = gx_sum0 + dx1_shift;
+    assign gy_comb = gy_sum0 + dy1_shift;
 
     always_ff @(posedge clk_i) begin
         if (!rstn_i) begin
             gx_o <= '0;
             gy_o <= '0;
-        end else begin
+        end else if (sobel_valid & ready_i) begin
             gx_o <= {{(2*WIDTH_P-(WIDTH_P+3)){gx_comb[WIDTH_P+2]}}, gx_comb};
             gy_o <= {{(2*WIDTH_P-(WIDTH_P+3)){gy_comb[WIDTH_P+2]}}, gy_comb};
         end

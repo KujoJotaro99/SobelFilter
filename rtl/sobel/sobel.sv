@@ -5,7 +5,7 @@ module sobel
     parameter WIDTH_P = 8,
     parameter LINE_W_P = 640,
     parameter FIFO_DEPTH_P = 256,
-    parameter UART_PRESCALE_P = 16'd33
+    parameter UART_PRESCALE_P = 16'd17
 ) (
     input logic [0:0] mclk_i,
     input logic [0:0] rstn_i,
@@ -161,6 +161,29 @@ module sobel
         .gray_o(gray_data)
     );
 
+    logic box_valid;
+    logic box_ready;
+    logic signed [(2*WIDTH_P)-1:0] box_gx;
+    logic signed [(2*WIDTH_P)-1:0] box_gy;
+    logic [WIDTH_P-1:0] box_pixel;
+
+    conv2d_box #(
+        .WIDTH_P(WIDTH_P),
+        .DEPTH_P(LINE_W_P)
+    ) sobel_box (
+        .clk_i(core_clk),
+        .rstn_i(rstn_sync),
+        .valid_i(gray_valid),
+        .ready_i(box_ready),
+        .data_i(gray_data),
+        .valid_o(box_valid),
+        .ready_o(gray_ready),
+        .gx_o(box_gx),
+        .gy_o(box_gy)
+    );
+
+    assign box_pixel = box_gx[WIDTH_P-1:0];
+
     logic conv_valid;
     logic conv_ready;
     logic signed [(2*WIDTH_P)-1:0] conv_gx;
@@ -172,18 +195,17 @@ module sobel
     ) sobel_conv2d (
         .clk_i(core_clk),
         .rstn_i(rstn_sync),
-        .valid_i(gray_valid),
+        .valid_i(box_valid),
         .ready_i(conv_ready),
-        .data_i(gray_data),
+        .data_i(box_pixel),
         .valid_o(conv_valid),
-        .ready_o(gray_ready),
+        .ready_o(box_ready),
         .gx_o(conv_gx),
         .gy_o(conv_gy)
     );
 
     logic [WIDTH_P-1:0] gx_abs;
     logic [WIDTH_P-1:0] gy_abs;
-    logic conv_ready;
 
     assign gx_abs = conv_gx[2*WIDTH_P-1] ? -conv_gx : conv_gx;
     assign gy_abs = conv_gy[2*WIDTH_P-1] ? -conv_gy : conv_gy;

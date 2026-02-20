@@ -1,4 +1,3 @@
-"""Coverage: reset, long stream rd/wr, dual read sync ram block"""
 import random
 import numpy as np
 
@@ -8,16 +7,12 @@ from cocotb.triggers import FallingEdge, Timer
 
 CLK_PERIOD_NS = 10
 
-# drivers
-
 class ModelManager:
-    """Reference dual-read sync RAM model for expected reads."""
     def __init__(self, dut):
         self.depth = int(dut.DEPTH_P.value)
         self.mem = np.full((self.depth,), np.nan)
 
     def run(self, input):
-        """Advance model state for one input and return expected output."""
         wr_en, wr_addr, data, rd_en_a, rd_addr_a, rd_en_b, rd_addr_b = input
 
         exp_a = None
@@ -37,7 +32,6 @@ class ModelManager:
         return (exp_a, exp_b)
 
 class InputManager:
-    """Drives input stream into the DUT with a valid buffer."""
     def __init__(self, stream):
         self.data = list(stream)
         self.idx = 0
@@ -45,11 +39,9 @@ class InputManager:
         self.current = None
 
     def has_next(self):
-        """Return True when more inputs remain."""
         return self.idx < len(self.data)
 
     def drive(self, handshake):
-        """Drive the current input and valid flag."""
         if not self.has_next():
             self.valid = False
             handshake.drive(False, (0, 0, 0, 0, 0, 0, 0))
@@ -60,7 +52,6 @@ class InputManager:
         handshake.drive(self.valid, self.current if self.valid else (0, 0, 0, 0, 0, 0, 0))
 
     def accept(self):
-        """Consume the current input after acceptance."""
         if self.valid:
             self.idx += 1
             self.valid = False
@@ -68,13 +59,13 @@ class InputManager:
         return None
 
 class ScoreManager:
-    """Tracks expected outputs and compares against DUT results."""
     def __init__(self, model):
         self.model = model
         self.pending = None
+        self.outputs_received = 0
+        self.pipeline_delay = 0
 
     def update_expected(self, input):
-        """Queue expected outputs for a new input."""
         exp_a, exp_b = self.model.run(input)
         if (exp_a is not None) or (exp_b is not None):
             self.pending = (exp_a, exp_b)
@@ -82,11 +73,17 @@ class ScoreManager:
             self.pending = None
 
     def check_output(self, output):
-        """Compare DUT output against expected values."""
         if output is None:
             return False
+
+        self.outputs_received += 1
+
+        if self.outputs_received <= self.pipeline_delay:
+            return False
+
         if self.pending is None:
             return False
+
         got_a, got_b = output
         exp_a, exp_b = self.pending
         if exp_a is not None:
@@ -101,11 +98,9 @@ class ScoreManager:
         return True
 
     def drain(self):
-        """Only for queue-based comparisons."""
         return False
 
 class TestManager:
-    """Coordinates stimulus, model updates, and checks."""
     def __init__(self, dut, stream):
         self.handshake = HandshakeManager(dut)
         self.input = InputManager(stream)
@@ -123,7 +118,6 @@ class TestManager:
                 self.expected_outputs += 1
 
     async def run(self):
-        """Main loop coordinating input and output checks."""
         try:
             self.input.drive(self.handshake)
             cycle = 0
@@ -147,15 +141,11 @@ class TestManager:
         finally:
             self.handshake.dut.wr_en_i.value = 0
             self.handshake.dut.rd_en_a_i.value = 0
-            self.handshake.dut.rd_en_b_i.value = 0
-
 class HandshakeManager:
-    """Wraps DUT signal driving and sampling."""
     def __init__(self, dut):
         self.dut = dut
 
     def drive(self, valid, data):
-        """Drive DUT inputs for this cycle."""
         wr_en, wr_addr, data_i, rd_en_a, rd_addr_a, rd_en_b, rd_addr_b = data
 
         self.dut.wr_en_i.value = 1 if (valid and wr_en) else 0
@@ -169,29 +159,22 @@ class HandshakeManager:
         self.dut.rd_addr_b_i.value = int(rd_addr_b)
 
     def input_accepted(self):
-        """Return True when input handshake succeeds."""
         return True
 
     def output_accepted(self):
-        """Return True when output handshake succeeds."""
         return bool(self.dut.rd_en_a_i.value or self.dut.rd_en_b_i.value)
 
     def output_value(self):
-        """Sample DUT outputs for comparison."""
         got_a = None if (not self.dut.data_a_o.value.is_resolvable) else int(self.dut.data_a_o.value)
         got_b = None if (not self.dut.data_b_o.value.is_resolvable) else int(self.dut.data_b_o.value)
         return (got_a, got_b)
 
-# unit tests
-
-async def counter_clock_test(dut):
-    """Clock gen"""
+async def clock_test(dut):
     await Timer(100, unit="ns")
     cocotb.start_soon(Clock(dut.clk_i, CLK_PERIOD_NS, unit="ns").start())
     await Timer(10, unit="ns")
 
-async def init_dut(dut):
-    """drive known defaults"""
+async def reset_test(dut):
     dut.rstn_i.value = 0
     dut.wr_en_i.value = 0
     dut.rd_en_a_i.value = 0
@@ -208,8 +191,8 @@ async def init_dut(dut):
 
 @cocotb.test(skip=False)
 async def test_sync_ram_block_a_only(dut):
-    await counter_clock_test(dut)
-    await init_dut(dut)
+    await clock_test(dut)
+    await reset_test(dut)
     width = int(dut.WIDTH_P.value)
     depth = int(dut.DEPTH_P.value)
 
@@ -222,7 +205,6 @@ async def test_sync_ram_block_a_only(dut):
         rd_addr_a = random.randint(0, depth - 1)
         rd_en_b = 0
         rd_addr_b = 0
-        # tuple shape expected in handshake manager
         stream.append((wr_en, wr_addr, data, rd_en_a, rd_addr_a, rd_en_b, rd_addr_b))
 
     env = TestManager(dut, stream)
@@ -230,8 +212,8 @@ async def test_sync_ram_block_a_only(dut):
 
 @cocotb.test(skip=False)
 async def test_sync_ram_block_b_only(dut):
-    await counter_clock_test(dut)
-    await init_dut(dut)
+    await clock_test(dut)
+    await reset_test(dut)
     width = int(dut.WIDTH_P.value)
     depth = int(dut.DEPTH_P.value)
 
@@ -244,7 +226,6 @@ async def test_sync_ram_block_b_only(dut):
         rd_addr_a = 0
         rd_en_b = random.randint(0, 1)
         rd_addr_b = random.randint(0, depth - 1)
-        # tuple shape expected in handshake manager
         stream.append((wr_en, wr_addr, data, rd_en_a, rd_addr_a, rd_en_b, rd_addr_b))
 
     env = TestManager(dut, stream)
@@ -252,8 +233,8 @@ async def test_sync_ram_block_b_only(dut):
 
 @cocotb.test(skip=False)
 async def test_sync_ram_block_both_random(dut):
-    await counter_clock_test(dut)
-    await init_dut(dut)
+    await clock_test(dut)
+    await reset_test(dut)
     width = int(dut.WIDTH_P.value)
     depth = int(dut.DEPTH_P.value)
 
@@ -266,7 +247,6 @@ async def test_sync_ram_block_both_random(dut):
         rd_addr_a = random.randint(0, depth - 1)
         rd_en_b = random.randint(0, 1)
         rd_addr_b = random.randint(0, depth - 1)
-        # tuple shape expected in handshake manager
         stream.append((wr_en, wr_addr, data, rd_en_a, rd_addr_a, rd_en_b, rd_addr_b))
 
     env = TestManager(dut, stream)
@@ -274,8 +254,8 @@ async def test_sync_ram_block_both_random(dut):
 
 @cocotb.test(skip=False)
 async def test_sync_ram_block_both_same_addr(dut):
-    await counter_clock_test(dut)
-    await init_dut(dut)
+    await clock_test(dut)
+    await reset_test(dut)
     width = int(dut.WIDTH_P.value)
     depth = int(dut.DEPTH_P.value)
 
@@ -286,7 +266,6 @@ async def test_sync_ram_block_both_same_addr(dut):
         data = random.randint(0, (1 << width) - 1)
         rd_en = random.randint(0, 1)
         rd_addr = random.randint(0, depth - 1)
-        # tuple shape expected in handshake manager
         stream.append((wr_en, wr_addr, data, rd_en, rd_addr, rd_en, rd_addr))
 
     env = TestManager(dut, stream)

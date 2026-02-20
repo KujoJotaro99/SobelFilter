@@ -28,29 +28,44 @@ module rgb2gray
     // (blue*0.0625 + blue*0.03125) = (blue >> 4) + (blue >> 5)
     localparam integer BLUE_SHIFT_1 = 4;
     localparam integer BLUE_SHIFT_2 = 5;
-
-    logic [WIDTH_P-1:0] red_term, green_term, blue_term;
-    logic [3*WIDTH_P-1:0] terms_data;
-    logic [3*WIDTH_P-1:0] terms_data_o;
-
+        logic [WIDTH_P-1:0] red_term, green_term, blue_term;
+        logic [3*WIDTH_P-1:0] terms_data;
+        logic [3*WIDTH_P-1:0] terms_data_o;
+        logic valid_mid;
+        logic ready_mid;
     // approximate shifts as a mac shift operation
     assign red_term = (red_i >> RED_SHIFT_1) + (red_i >> RED_SHIFT_2);
     assign green_term = (green_i >> GREEN_SHIFT_1) + (green_i >> GREEN_SHIFT_2);
     assign blue_term = (blue_i >> BLUE_SHIFT_1) + (blue_i >> BLUE_SHIFT_2);
     assign terms_data = {red_term, green_term, blue_term};
-
     elastic #(
-        .WIDTH_P(3*WIDTH_P)
-    ) terms_elastic (
-        .clk_i(clk_i),
-        .rstn_i(rstn_i),
-        .data_i(terms_data),
-        .valid_i(valid_i),
-        .ready_o(ready_o),
-        .valid_o(valid_o),
-        .data_o(terms_data_o),
-        .ready_i(ready_i)
-    );
-
-    assign gray_o = terms_data_o[3*WIDTH_P-1:2*WIDTH_P] + terms_data_o[2*WIDTH_P-1:WIDTH_P] + terms_data_o[WIDTH_P-1:0];
+            .WIDTH_P(3*WIDTH_P)
+        ) terms_elastic (
+            .clk_i(clk_i),
+            .rstn_i(rstn_i),
+            .data_i(terms_data),
+            .valid_i(valid_i),
+            .ready_o(ready_o),
+            .valid_o(valid_mid),
+            .data_o(terms_data_o),
+            .ready_i(ready_mid)
+        );
+        logic [WIDTH_P:0] rg_sum;
+        logic [WIDTH_P+1:0] gray_sum;
+    assign rg_sum = terms_data_o[3*WIDTH_P-1:2*WIDTH_P] + terms_data_o[2*WIDTH_P-1:WIDTH_P];
+    assign gray_sum = rg_sum + terms_data_o[WIDTH_P-1:0];
+        logic [WIDTH_P+1:0] gray_sum_pipe;
+    elastic #(
+            .WIDTH_P(WIDTH_P+2)
+        ) sum_elastic (
+            .clk_i(clk_i),
+            .rstn_i(rstn_i),
+            .data_i(gray_sum),
+            .valid_i(valid_mid),
+            .ready_o(ready_mid),
+            .valid_o(valid_o),
+            .data_o(gray_sum_pipe),
+            .ready_i(ready_i)
+        );
+    assign gray_o = gray_sum_pipe[WIDTH_P-1:0];
 endmodule

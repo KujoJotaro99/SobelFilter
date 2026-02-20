@@ -16,16 +16,14 @@ module magnitude
 );
 
     logic [WIDTH_P:0] mag_sum;
-    logic [WIDTH_P-1:0] mag_soft;
     assign mag_sum = {1'b0, gx_i} + {1'b0, gy_i};
-    assign mag_soft = (mag_sum[WIDTH_P-1:0] >= 8'd100) ? mag_sum[WIDTH_P-1:0] : {WIDTH_P{1'b0}};
     
     elastic #(
         .WIDTH_P(WIDTH_P)
     ) mag_elastic (
         .clk_i(clk_i),
         .rstn_i(rstn_i),
-        .data_i(mag_soft),
+        .data_i(mag_sum),
         .valid_i(valid_i),
         .ready_o(ready_o),
         .valid_o(valid_o),

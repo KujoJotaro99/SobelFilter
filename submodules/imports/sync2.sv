@@ -1,3 +1,7 @@
+/*
+  sync2.sv: two stage synchronizer module imported from CSE 225 curriculum UCSC
+*/
+
 module sync2 #(
     parameter WIDTH_P = 8
 )(
