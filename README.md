@@ -42,14 +42,11 @@ The synthesis report identifies a single critical path in the UART TX prescaler 
 
 ## Example Outputs
 
-car.jpg
 ![](jupyter/car.jpg)
 ![](jupyter/car_out.png)
 
-comic.jpg
 ![](jupyter/comic.jpg)
 ![](jupyter/comic_out.png)
 
-mountain.jpg
 ![](jupyter/mountain.jpg)
 ![](jupyter/mountain_out.png)
