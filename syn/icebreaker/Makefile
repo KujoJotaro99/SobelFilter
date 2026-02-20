@@ -12,8 +12,7 @@ NEXTPNR := nextpnr-ice40
 ICEPACK := icepack
 LOG ?= out.txt
 LOG_CMD := tee -a $(LOG)
-SEED ?= 4
-
+SEED ?= 15
 DEVICE := up5k
 PACKAGE := sg48
 

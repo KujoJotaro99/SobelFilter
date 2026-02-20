@@ -161,28 +161,74 @@ module sobel
         .gray_o(gray_data)
     );
 
-    logic box_valid;
-    logic box_ready;
-    logic signed [(2*WIDTH_P)-1:0] box_gx;
-    logic signed [(2*WIDTH_P)-1:0] box_gy;
-    logic [WIDTH_P-1:0] box_pixel;
+    logic box1_valid;
+    logic box1_ready;
+    logic signed [(2*WIDTH_P)-1:0] box1_gx;
+    logic signed [(2*WIDTH_P)-1:0] box1_gy;
+    logic [WIDTH_P-1:0] box1_pixel;
+
+    logic box2_valid;
+    logic box2_ready;
+    logic signed [(2*WIDTH_P)-1:0] box2_gx;
+    logic signed [(2*WIDTH_P)-1:0] box2_gy;
+    logic [WIDTH_P-1:0] box2_pixel;
+
+    logic box3_valid;
+    logic box3_ready;
+    logic signed [(2*WIDTH_P)-1:0] box3_gx;
+    logic signed [(2*WIDTH_P)-1:0] box3_gy;
+    logic [WIDTH_P-1:0] box3_pixel;
 
     conv2d_box #(
         .WIDTH_P(WIDTH_P),
         .DEPTH_P(LINE_W_P)
-    ) sobel_box (
+    ) sobel_box_1 (
         .clk_i(core_clk),
         .rstn_i(rstn_sync),
         .valid_i(gray_valid),
-        .ready_i(box_ready),
+        .ready_i(box1_ready),
         .data_i(gray_data),
-        .valid_o(box_valid),
+        .valid_o(box1_valid),
         .ready_o(gray_ready),
-        .gx_o(box_gx),
-        .gy_o(box_gy)
+        .gx_o(box1_gx),
+        .gy_o(box1_gy)
     );
 
-    assign box_pixel = box_gx[WIDTH_P-1:0];
+    assign box1_pixel = box1_gx[WIDTH_P-1:0];
+
+    conv2d_box #(
+        .WIDTH_P(WIDTH_P),
+        .DEPTH_P(LINE_W_P)
+    ) sobel_box_2 (
+        .clk_i(core_clk),
+        .rstn_i(rstn_sync),
+        .valid_i(box1_valid),
+        .ready_i(box2_ready),
+        .data_i(box1_pixel),
+        .valid_o(box2_valid),
+        .ready_o(box1_ready),
+        .gx_o(box2_gx),
+        .gy_o(box2_gy)
+    );
+
+    assign box2_pixel = box2_gx[WIDTH_P-1:0];
+
+    conv2d_box #(
+        .WIDTH_P(WIDTH_P),
+        .DEPTH_P(LINE_W_P)
+    ) sobel_box_3 (
+        .clk_i(core_clk),
+        .rstn_i(rstn_sync),
+        .valid_i(box2_valid),
+        .ready_i(box3_ready),
+        .data_i(box2_pixel),
+        .valid_o(box3_valid),
+        .ready_o(box2_ready),
+        .gx_o(box3_gx),
+        .gy_o(box3_gy)
+    );
+
+    assign box3_pixel = box3_gx[WIDTH_P-1:0];
 
     logic conv_valid;
     logic conv_ready;
@@ -195,11 +241,11 @@ module sobel
     ) sobel_conv2d (
         .clk_i(core_clk),
         .rstn_i(rstn_sync),
-        .valid_i(box_valid),
+        .valid_i(box3_valid),
         .ready_i(conv_ready),
-        .data_i(box_pixel),
+        .data_i(box3_pixel),
         .valid_o(conv_valid),
-        .ready_o(box_ready),
+        .ready_o(box3_ready),
         .gx_o(conv_gx),
         .gy_o(conv_gy)
     );

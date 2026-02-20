@@ -65,7 +65,7 @@ class ScoreManager:
         self.model = model
         self.pending = deque()
         self.outputs_received = 0
-        self.pipeline_delay = 2 * model.width + 4
+        self.pipeline_delay = 1
 
     def update_expected(self, input):
         gx_exp, gy_exp = self.model.run(input)

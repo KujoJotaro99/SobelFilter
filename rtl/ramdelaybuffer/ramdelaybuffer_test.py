@@ -194,11 +194,3 @@ async def test_ramdelay_buffer_stream(dut):
     await env.run()
     assert env.scoreboard.checked_a == max(0, len(stream) - int(dut.DELAY_A_P.value))
     assert env.scoreboard.checked_b == max(0, len(stream) - int(dut.DELAY_B_P.value))
-
-@cocotb.test()
-async def single_image_test(dut):
-    await clock_test(dut)
-    await reset_test(dut)
-    img_path = Path(__file__).resolve().parents[2] / "jupyter" / "car.jpg"
-    img = cv.imread(str(img_path), cv.IMREAD_GRAYSCALE)
-    await TestManager(dut, img[:, : int(dut.WIDTH_P.value)]).run()

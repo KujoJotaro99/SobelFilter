@@ -16,10 +16,11 @@ module magnitude
 );
 
     logic [WIDTH_P:0] mag_sum;
+    logic [WIDTH_P:0] mag_pre;
     assign mag_sum = {1'b0, gx_i} + {1'b0, gy_i};
     
     elastic #(
-        .WIDTH_P(WIDTH_P)
+        .WIDTH_P(WIDTH_P+1)
     ) mag_elastic (
         .clk_i(clk_i),
         .rstn_i(rstn_i),
@@ -27,8 +28,10 @@ module magnitude
         .valid_i(valid_i),
         .ready_o(ready_o),
         .valid_o(valid_o),
-        .data_o(mag_o),
+        .data_o(mag_pre),
         .ready_i(ready_i)
     );
+
+    assign mag_o = mag_pre[WIDTH_P] ? {WIDTH_P{1'b1}} : mag_pre[WIDTH_P-1:0];
 
 endmodule

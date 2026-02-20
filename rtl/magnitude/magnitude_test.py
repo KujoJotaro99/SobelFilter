@@ -18,10 +18,10 @@ class ModelManager:
     def run(self, input):
         # input format [gx, gy]
         gx, gy = input
-        shift = self.width - 5
-        gx_idx = (int(gx) >> shift) & 0x1F
-        gy_idx = (int(gy) >> shift) & 0x1F
-        return int(max(gx_idx, gy_idx))
+        mag_sum = int(gx) + int(gy)
+        if mag_sum > ((1 << self.width) - 1):
+            return (1 << self.width) - 1
+        return mag_sum
 
 class InputManager:
     def __init__(self, stream):

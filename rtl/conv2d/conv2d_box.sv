@@ -19,6 +19,9 @@ module conv2d_box
     logic [WIDTH_P-1:0] ram_row0;
     logic [WIDTH_P-1:0] ram_row1;
 
+    logic box_valid;
+    logic box_ready;
+
     ramdelaybuffer #(
         .WIDTH_P(WIDTH_P),
         .DELAY_P(2*DEPTH_P-1),
@@ -28,8 +31,8 @@ module conv2d_box
         .clk_i(clk_i),
         .rstn_i(rstn_i),
         .valid_i(valid_i),
-        .ready_i(ready_i),
-        .valid_o(valid_o),
+        .ready_i(box_ready),
+        .valid_o(box_valid),
         .ready_o(ready_o),
         .data_i(data_i),
         .data_a_o(ram_row0),
@@ -88,13 +91,28 @@ module conv2d_box
 
     assign blur_val = sum_all[WIDTH_P+3:4];
 
+    logic [WIDTH_P-1:0] blur_pipe;
+
+    elastic #(
+        .WIDTH_P(WIDTH_P)
+    ) blur_elastic (
+        .clk_i(clk_i),
+        .rstn_i(rstn_i),
+        .data_i(blur_val),
+        .valid_i(box_valid),
+        .ready_o(box_ready),
+        .valid_o(valid_o),
+        .data_o(blur_pipe),
+        .ready_i(ready_i)
+    );
+
     always_ff @(posedge clk_i) begin
         if (!rstn_i) begin
             gx_o <= '0;
             gy_o <= '0;
-        end else begin
-            gx_o <= {{WIDTH_P{1'b0}}, blur_val};
-            gy_o <= {{WIDTH_P{1'b0}}, blur_val};
+        end else if (valid_o & ready_i) begin
+            gx_o <= {{WIDTH_P{1'b0}}, blur_pipe};
+            gy_o <= {{WIDTH_P{1'b0}}, blur_pipe};
         end
     end
 

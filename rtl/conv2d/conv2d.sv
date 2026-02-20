@@ -1,5 +1,4 @@
 `timescale 1ns/1ps
-
 module conv2d 
 #(
     parameter WIDTH_P = 8,
@@ -15,8 +14,9 @@ module conv2d
     output logic signed [(2*WIDTH_P)-1:0] gx_o,
     output logic signed [(2*WIDTH_P)-1:0] gy_o
 );
-
     logic [WIDTH_P-1:0] ram_row0, ram_row1;
+    logic line_valid;
+    logic sobel_ready;
 
     ramdelaybuffer #(
         .WIDTH_P(WIDTH_P),
@@ -27,17 +27,15 @@ module conv2d
         .clk_i(clk_i),
         .rstn_i(rstn_i),
         .valid_i(valid_i),
-        .ready_i(ready_i),
-        .valid_o(valid_o),
+        .ready_i(sobel_ready),
+        .valid_o(line_valid),
         .ready_o(ready_o),
         .data_i(data_i),
         .data_a_o(ram_row0),
         .data_b_o(ram_row1)
     );
 
-    // convolution sliding window
     logic [WIDTH_P-1:0] conv_window [2:0][2:0];
-
     integer r;
     integer c;
 
@@ -49,31 +47,21 @@ module conv2d
                 end
             end
         end else if (valid_i & ready_o) begin
-            // shift data into each row
             for (r = 0; r < 3; r = r + 1) begin
                 conv_window[r][0] <= conv_window[r][1];
                 conv_window[r][1] <= conv_window[r][2];
             end
-            
-            // shift corresponding row data into each row
-            conv_window[0][2] <= ram_row0; // 2 rows ago
-            conv_window[1][2] <= ram_row1; // 1 row ago
-            conv_window[2][2] <= data_i; // newest data
+            conv_window[0][2] <= ram_row0;
+            conv_window[1][2] <= ram_row1;
+            conv_window[2][2] <= data_i;
         end
     end
 
-    logic signed [WIDTH_P:0] dx0;
-    logic signed [WIDTH_P:0] dx1;
-    logic signed [WIDTH_P:0] dx2;
-    logic signed [WIDTH_P:0] dy0;
-    logic signed [WIDTH_P:0] dy1;
-    logic signed [WIDTH_P:0] dy2;
-    logic signed [WIDTH_P+1:0] gx_sum0;
-    logic signed [WIDTH_P+1:0] gy_sum0;
-    logic signed [WIDTH_P:0] dx1_shift;
-    logic signed [WIDTH_P:0] dy1_shift;
-    logic signed [WIDTH_P+2:0] gx_comb;
-    logic signed [WIDTH_P+2:0] gy_comb;
+    logic signed [WIDTH_P:0] dx0, dx1, dx2, dy0, dy1, dy2;
+    logic signed [WIDTH_P:0] dx0_pipe, dx1_pipe, dx2_pipe;
+    logic signed [WIDTH_P:0] dy0_pipe, dy1_pipe, dy2_pipe;
+    logic signed [WIDTH_P+1:0] gx_sum0, gy_sum0;
+    logic signed [WIDTH_P+2:0] gx_comb, gy_comb;
 
     assign dx0 = $signed({1'b0, conv_window[0][2]}) - $signed({1'b0, conv_window[0][0]});
     assign dx1 = $signed({1'b0, conv_window[1][2]}) - $signed({1'b0, conv_window[1][0]});
@@ -82,38 +70,24 @@ module conv2d
     assign dy1 = $signed({1'b0, conv_window[2][1]}) - $signed({1'b0, conv_window[0][1]});
     assign dy2 = $signed({1'b0, conv_window[2][2]}) - $signed({1'b0, conv_window[0][2]});
 
-    logic sobel_valid;
-    logic signed [WIDTH_P:0] dx0_pipe, dx1_pipe, dx2_pipe;
-    logic signed [WIDTH_P:0] dy0_pipe, dy1_pipe, dy2_pipe;
-
     elastic #(
         .WIDTH_P(6*(WIDTH_P+1))
     ) sobel_pipe (
         .clk_i(clk_i),
         .rstn_i(rstn_i),
         .data_i({dx0, dx1, dx2, dy0, dy1, dy2}),
-        .valid_i(valid_o),
-        .ready_o(),
-        .valid_o(sobel_valid),
+        .valid_i(line_valid),
+        .ready_o(sobel_ready),
+        .valid_o(valid_o),
         .data_o({dx0_pipe, dx1_pipe, dx2_pipe, dy0_pipe, dy1_pipe, dy2_pipe}),
         .ready_i(ready_i)
     );
 
     assign gx_sum0 = dx0_pipe + dx2_pipe;
     assign gy_sum0 = dy0_pipe + dy2_pipe;
-    assign dx1_shift = dx1_pipe <<< 1;
-    assign dy1_shift = dy1_pipe <<< 1;
-    assign gx_comb = gx_sum0 + dx1_shift;
-    assign gy_comb = gy_sum0 + dy1_shift;
-
-    always_ff @(posedge clk_i) begin
-        if (!rstn_i) begin
-            gx_o <= '0;
-            gy_o <= '0;
-        end else if (sobel_valid & ready_i) begin
-            gx_o <= {{(2*WIDTH_P-(WIDTH_P+3)){gx_comb[WIDTH_P+2]}}, gx_comb};
-            gy_o <= {{(2*WIDTH_P-(WIDTH_P+3)){gy_comb[WIDTH_P+2]}}, gy_comb};
-        end
-    end
+    assign gx_comb = gx_sum0 + (dx1_pipe <<< 1);
+    assign gy_comb = gy_sum0 + (dy1_pipe <<< 1);
+    assign gx_o = {{(2*WIDTH_P-(WIDTH_P+3)){gx_comb[WIDTH_P+2]}}, gx_comb};
+    assign gy_o = {{(2*WIDTH_P-(WIDTH_P+3)){gy_comb[WIDTH_P+2]}}, gy_comb};
 
 endmodule
