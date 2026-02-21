@@ -165,19 +165,16 @@ module sobel
     logic [0:0] box1_ready;
     logic signed [(2*WIDTH_P)-1:0] box1_gx;
     logic signed [(2*WIDTH_P)-1:0] box1_gy;
-    logic [WIDTH_P-1:0] box1_pixel;
 
     logic [0:0] box2_valid;
     logic [0:0] box2_ready;
     logic signed [(2*WIDTH_P)-1:0] box2_gx;
     logic signed [(2*WIDTH_P)-1:0] box2_gy;
-    logic [WIDTH_P-1:0] box2_pixel;
 
     logic [0:0] box3_valid;
     logic [0:0] box3_ready;
     logic signed [(2*WIDTH_P)-1:0] box3_gx;
     logic signed [(2*WIDTH_P)-1:0] box3_gy;
-    logic [WIDTH_P-1:0] box3_pixel;
 
     conv2d_box #(
         .WIDTH_P(WIDTH_P),
@@ -194,8 +191,6 @@ module sobel
         .gy_o(box1_gy)
     );
 
-    assign box1_pixel = box1_gx[WIDTH_P-1:0];
-
     conv2d_box #(
         .WIDTH_P(WIDTH_P),
         .DEPTH_P(LINE_W_P)
@@ -204,14 +199,12 @@ module sobel
         .rstn_i(rstn_sync),
         .valid_i(box1_valid),
         .ready_i(box2_ready),
-        .data_i(box1_pixel),
+        .data_i(box1_gx[WIDTH_P-1:0]),
         .valid_o(box2_valid),
         .ready_o(box1_ready),
         .gx_o(box2_gx),
         .gy_o(box2_gy)
     );
-
-    assign box2_pixel = box2_gx[WIDTH_P-1:0];
 
     conv2d_box #(
         .WIDTH_P(WIDTH_P),
@@ -221,14 +214,12 @@ module sobel
         .rstn_i(rstn_sync),
         .valid_i(box2_valid),
         .ready_i(box3_ready),
-        .data_i(box2_pixel),
+        .data_i(box2_gx[WIDTH_P-1:0]),
         .valid_o(box3_valid),
         .ready_o(box2_ready),
         .gx_o(box3_gx),
         .gy_o(box3_gy)
     );
-
-    assign box3_pixel = box3_gx[WIDTH_P-1:0];
 
     logic [0:0] conv_valid;
     logic [0:0] conv_ready;
@@ -243,7 +234,7 @@ module sobel
         .rstn_i(rstn_sync),
         .valid_i(box3_valid),
         .ready_i(conv_ready),
-        .data_i(box3_pixel),
+        .data_i(box3_gx[WIDTH_P-1:0]),
         .valid_o(conv_valid),
         .ready_o(box3_ready),
         .gx_o(conv_gx),
