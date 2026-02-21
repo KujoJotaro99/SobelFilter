@@ -4,14 +4,6 @@ UART-streamed Sobel edge detection pipeline for iCE40 UP5K FPGA. Image data is t
 
 ## Processing Pipeline
 
-  UART RX
-  8-to-24-bit byte packing
-  RGB to grayscale conversion
-  3x3 Sobel convolution
-  3x3 Gaussian convolution
-  Gradient magnitude calculation
-  UART TX
-
 ## Project Specifications
 
 Target Device: Lattice iCE40 UP5K
