@@ -4,6 +4,8 @@ UART-streamed Sobel edge detection pipeline for iCE40 UP5K FPGA. Image data is t
 
 ## Processing Pipeline
 
+![](jupyter/sobel.drawio.png)
+
 ## Project Specifications
 
 Target Device: Lattice iCE40 UP5K
