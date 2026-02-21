@@ -125,23 +125,6 @@ module sobel
         .m_axis_tuser()
     );
 
-    logic [23:0] rgb_pipe_data;
-    logic [0:0] rgb_pipe_valid;
-    logic [0:0] rgb_pipe_ready;
-
-    elastic #(
-        .WIDTH_P(24)
-    ) rgb_pipe (
-        .clk_i(core_clk),
-        .rstn_i(rstn_sync),
-        .data_i(rgb_data),
-        .valid_i(rgb_valid),
-        .ready_o(rgb_ready),
-        .valid_o(rgb_pipe_valid),
-        .data_o(rgb_pipe_data),
-        .ready_i(rgb_pipe_ready)
-    );
-
     logic [0:0] gray_valid;
     logic [7:0] gray_data;
     logic [0:0] gray_ready;
@@ -151,13 +134,13 @@ module sobel
     ) rgb2gray_inst (
         .clk_i(core_clk),
         .rstn_i(rstn_sync),
-        .valid_i(rgb_pipe_valid),
+        .valid_i(rgb_valid),
         .ready_i(gray_ready),
         .valid_o(gray_valid),
-        .ready_o(rgb_pipe_ready),
-        .red_i(rgb_pipe_data[7:0]),
-        .blue_i(rgb_pipe_data[23:16]),
-        .green_i(rgb_pipe_data[15:8]),
+        .ready_o(rgb_ready),
+        .red_i(rgb_data[7:0]),
+        .blue_i(rgb_data[23:16]),
+        .green_i(rgb_data[15:8]),
         .gray_o(gray_data)
     );
 
@@ -165,16 +148,6 @@ module sobel
     logic [0:0] box1_ready;
     logic signed [(2*WIDTH_P)-1:0] box1_gx;
     logic signed [(2*WIDTH_P)-1:0] box1_gy;
-
-    logic [0:0] box2_valid;
-    logic [0:0] box2_ready;
-    logic signed [(2*WIDTH_P)-1:0] box2_gx;
-    logic signed [(2*WIDTH_P)-1:0] box2_gy;
-
-    logic [0:0] box3_valid;
-    logic [0:0] box3_ready;
-    logic signed [(2*WIDTH_P)-1:0] box3_gx;
-    logic signed [(2*WIDTH_P)-1:0] box3_gy;
 
     conv2d_box #(
         .WIDTH_P(WIDTH_P),
@@ -191,36 +164,6 @@ module sobel
         .gy_o(box1_gy)
     );
 
-    conv2d_box #(
-        .WIDTH_P(WIDTH_P),
-        .DEPTH_P(LINE_W_P)
-    ) sobel_box_2 (
-        .clk_i(core_clk),
-        .rstn_i(rstn_sync),
-        .valid_i(box1_valid),
-        .ready_i(box2_ready),
-        .data_i(box1_gx[WIDTH_P-1:0]),
-        .valid_o(box2_valid),
-        .ready_o(box1_ready),
-        .gx_o(box2_gx),
-        .gy_o(box2_gy)
-    );
-
-    conv2d_box #(
-        .WIDTH_P(WIDTH_P),
-        .DEPTH_P(LINE_W_P)
-    ) sobel_box_3 (
-        .clk_i(core_clk),
-        .rstn_i(rstn_sync),
-        .valid_i(box2_valid),
-        .ready_i(box3_ready),
-        .data_i(box2_gx[WIDTH_P-1:0]),
-        .valid_o(box3_valid),
-        .ready_o(box2_ready),
-        .gx_o(box3_gx),
-        .gy_o(box3_gy)
-    );
-
     logic [0:0] conv_valid;
     logic [0:0] conv_ready;
     logic signed [(2*WIDTH_P)-1:0] conv_gx;
@@ -232,11 +175,11 @@ module sobel
     ) sobel_conv2d (
         .clk_i(core_clk),
         .rstn_i(rstn_sync),
-        .valid_i(box3_valid),
+        .valid_i(box1_valid),
         .ready_i(conv_ready),
-        .data_i(box3_gx[WIDTH_P-1:0]),
+        .data_i(box1_gx[WIDTH_P-1:0]),
         .valid_o(conv_valid),
-        .ready_o(box3_ready),
+        .ready_o(box1_ready),
         .gx_o(conv_gx),
         .gy_o(conv_gy)
     );
@@ -265,23 +208,6 @@ module sobel
         .mag_o(mag_data)
     );
 
-    logic [23:0] mag_pipe_data;
-    logic [0:0] mag_pipe_valid;
-    logic [0:0] mag_pipe_ready;
-
-    elastic #(
-        .WIDTH_P(24)
-    ) mag_pipe (
-        .clk_i(core_clk),
-        .rstn_i(rstn_sync),
-        .data_i({3{mag_data[WIDTH_P-1:0]}}),
-        .valid_i(mag_valid),
-        .ready_o(mag_ready),
-        .valid_o(mag_pipe_valid),
-        .data_o(mag_pipe_data),
-        .ready_i(mag_pipe_ready)
-    );
-
     axis_adapter #(
         .S_DATA_WIDTH(24),
         .M_DATA_WIDTH(8),
@@ -291,10 +217,10 @@ module sobel
     ) rgb_unpack (
         .clk(core_clk),
         .rst(~rstn_sync),
-        .s_axis_tdata(mag_pipe_data),
+        .s_axis_tdata({3{mag_data[WIDTH_P-1:0]}}),
         .s_axis_tkeep(3'b111),
-        .s_axis_tvalid(mag_pipe_valid),
-        .s_axis_tready(mag_pipe_ready),
+        .s_axis_tvalid(mag_valid),
+        .s_axis_tready(mag_ready),
         .s_axis_tlast(1'b0),
         .s_axis_tid('0),
         .s_axis_tdest('0),
