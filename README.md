@@ -16,11 +16,7 @@ Block RAM: 25 out of 30 blocks used (83%)
 
 Maximum Frequency: 35.29 MHz (30 MHz core clock)
 
-Timing Margin: 5.29 MHz above target
-
 Clock Source: 12 MHz external oscillator via PLL
-
-Core Clock: 30 MHz (PLL multiplied 2x, divided by 1)
 
 ## Design Features
 
