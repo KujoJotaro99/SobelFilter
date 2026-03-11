@@ -1,99 +1,90 @@
-"""coverage reset, gaussian 3x3 blur convolution, trying to implement uvm like test plan"""
-import numpy as np
-import cv2 as cv
 from pathlib import Path
-from collections import deque
 
-import sys
-sys.stdout.flush()
-sys.stderr.flush()
+import cv2 as cv
+import numpy as np
 
 import cocotb
 from cocotb.clock import Clock
 from cocotb.triggers import FallingEdge, Timer
 
-CLK_PERIOD_NS = 10
+CLOCK_PERIOD_NS = 10
+
 
 class ModelManager:
+    kernel = np.array([[1, 2, 1], [2, 4, 2], [1, 2, 1]], dtype=np.int32)
+
     def __init__(self, dut):
         self.width = int(dut.DEPTH_P.value)
-        self.buf = np.full((3, self.width), np.nan)
+        self.buffer = np.full((3, self.width), np.nan)
 
-    kernel = np.array([[1, 2, 1],
-                       [2, 4, 2],
-                       [1, 2, 1]], dtype=np.int32)
+    def run(self, input_data):
+        flat = np.roll(self.buffer.flatten(), -1)
+        flat[-1] = int(input_data)
+        self.buffer = flat.reshape(self.buffer.shape)
 
-    def run(self, input):
-        flat = self.buf.flatten()
-        flat = np.roll(flat, -1)
-        flat[-1] = input
-        self.buf = flat.reshape(self.buf.shape)
-
-        window = self.buf[:, -3:]
+        window = self.buffer[:, -3:]
         if np.isnan(window).any():
             return None
 
-        val = int(np.sum(window * self.kernel) // 16)
-        return val
+        return int(np.sum(window * self.kernel) // 16)
+
 
 class InputManager:
     def __init__(self, stream):
-        self.data = stream.flatten()
-        self.idx = 0
+        self.data = list(np.asarray(stream).flatten())
+        self.index = 0
         self.valid = False
-        self.current = 0
-
-    def has_next(self):
-        return self.idx < len(self.data)
+        self.current = None
 
     def drive(self, handshake):
-        if not self.valid and self.has_next():
-            self.current = int(self.data[self.idx])
+        if not self.valid and self.index < len(self.data):
+            self.current = int(self.data[self.index])
             self.valid = True
         handshake.drive(self.valid, self.current if self.valid else 0)
 
     def accept(self):
         if self.valid:
-            self.idx += 1
+            self.index += 1
             self.valid = False
             return self.current
         return None
 
+
 class ScoreManager:
     def __init__(self, model):
         self.model = model
-        self.pending = deque()
+        self.pending = []
+        self.outputs_received = 0
+        self.pipeline_delay = 0
 
-    def update_expected(self, input):
-        exp = self.model.run(input)
-        if exp is not None:
-            self.pending.append(exp)
+    def update_expected(self, input_data):
+        expected = self.model.run(input_data)
+        if expected is not None:
+            self.pending.append(expected)
 
     def check_output(self, output):
+        if output is None:
+            return False
+
+        self.outputs_received += 1
+        if self.outputs_received <= self.pipeline_delay or not self.pending:
+            return False
+
         gx_out, gy_out = output
-        if gx_out is None or gy_out is None:
-            return False
-        if not self.pending:
-            return False
-        exp = self.pending.popleft()
-        assert gx_out == exp, f"Mismatch gx: got {gx_out}, expected {exp}"
-        assert gy_out == exp, f"Mismatch gy: got {gy_out}, expected {exp}"
+        expected = self.pending.pop(0)
+        assert int(gx_out) == int(expected), f"Mismatch gx: got {int(gx_out)} expected {int(expected)}"
+        assert int(gy_out) == int(expected), f"Mismatch gy: got {int(gy_out)} expected {int(expected)}"
         return True
 
-    def drain(self):
-        return False
 
 class TestManager:
     def __init__(self, dut, stream):
         self.handshake = HandshakeManager(dut)
-
-        self.height, self.width = stream.shape
-        self.expected_outputs = max(0, (self.height - 2) * (self.width - 2))
-        self.checked = 0
-
         self.input = InputManager(stream)
-        self.model = ModelManager(dut)
-        self.scoreboard = ScoreManager(self.model)
+        self.scoreboard = ScoreManager(ModelManager(dut))
+        height, width = np.asarray(stream).shape
+        self.expected_outputs = max(0, (height - 2) * (width - 2))
+        self.checked = 0
         self.in_stride = 1
         self.out_stride = 1
 
@@ -105,10 +96,7 @@ class TestManager:
                 await FallingEdge(self.handshake.dut.clk_i)
                 cycle += 1
 
-                if (cycle % self.out_stride) == 0:
-                    self.handshake.dut.ready_i.value = 1
-                else:
-                    self.handshake.dut.ready_i.value = 0
+                self.handshake.dut.ready_i.value = 1 if (cycle % self.out_stride) == 0 else 0
 
                 if self.handshake.output_accepted():
                     if self.scoreboard.check_output(self.handshake.output_value()):
@@ -116,15 +104,17 @@ class TestManager:
 
                 if (cycle % self.in_stride) == 0:
                     if self.handshake.input_accepted():
-                        inp = self.input.accept()
-                        if inp is not None:
-                            self.scoreboard.update_expected(inp)
+                        input_data = self.input.accept()
+                        if input_data is not None:
+                            self.scoreboard.update_expected(input_data)
                     self.input.drive(self.handshake)
                 else:
-                    self.handshake.dut.valid_i.value = 0
+                    self.handshake.drive(False, 0)
         finally:
             self.handshake.dut.valid_i.value = 0
             self.handshake.dut.ready_i.value = 0
+            self.handshake.dut.data_i.value = 0
+
 
 class HandshakeManager:
     def __init__(self, dut):
@@ -132,7 +122,7 @@ class HandshakeManager:
 
     def drive(self, valid, data):
         self.dut.valid_i.value = 1 if valid else 0
-        self.dut.data_i.value = data
+        self.dut.data_i.value = int(data)
 
     def input_accepted(self):
         return bool(self.dut.valid_i.value and self.dut.ready_o.value)
@@ -141,42 +131,44 @@ class HandshakeManager:
         return bool(self.dut.valid_o.value and self.dut.ready_i.value)
 
     def output_value(self):
-        if (not self.dut.gx_o.value.is_resolvable) or (not self.dut.gy_o.value.is_resolvable):
-            return (None, None)
-        return (self.dut.gx_o.value.to_signed(), self.dut.gy_o.value.to_signed())
+        if not self.dut.gx_o.value.is_resolvable or not self.dut.gy_o.value.is_resolvable:
+            return None
+        return self.dut.gx_o.value.to_signed(), self.dut.gy_o.value.to_signed()
+
 
 async def clock_test(dut):
     await Timer(100, unit="ns")
-    cocotb.start_soon(Clock(dut.clk_i, CLK_PERIOD_NS, unit="ns").start())
+    cocotb.start_soon(Clock(dut.clk_i, CLOCK_PERIOD_NS, unit="ns").start())
     await Timer(10, unit="ns")
+
 
 async def reset_test(dut):
     dut.rstn_i.value = 0
     dut.valid_i.value = 0
     dut.ready_i.value = 0
-    await Timer(10 * CLK_PERIOD_NS, unit="ns")
+    dut.data_i.value = 0
+    await Timer(10 * CLOCK_PERIOD_NS, unit="ns")
     await FallingEdge(dut.clk_i)
     dut.rstn_i.value = 1
-    await Timer(10 * CLK_PERIOD_NS, unit="ns")
+    await Timer(10 * CLOCK_PERIOD_NS, unit="ns")
     await FallingEdge(dut.clk_i)
+
 
 @cocotb.test()
 async def single_zeroes_test(dut):
     await clock_test(dut)
     await reset_test(dut)
     width = int(dut.DEPTH_P.value)
-    height = 4 * width
-    stream = np.zeros((height, width), dtype=np.uint8)
-    await TestManager(dut, stream).run()
+    await TestManager(dut, np.zeros((4 * width, width), dtype=np.uint8)).run()
+
 
 @cocotb.test()
 async def single_ones_test(dut):
     await clock_test(dut)
     await reset_test(dut)
     width = int(dut.DEPTH_P.value)
-    height = 4 * width
-    stream = np.ones((height, width), dtype=np.uint8)
-    await TestManager(dut, stream).run()
+    await TestManager(dut, np.ones((4 * width, width), dtype=np.uint8)).run()
+
 
 @cocotb.test()
 async def single_impulse_test(dut):
@@ -187,6 +179,7 @@ async def single_impulse_test(dut):
     stream = np.zeros((height, width), dtype=np.uint8)
     stream[height // 2, width // 2] = 1
     await TestManager(dut, stream).run()
+
 
 @cocotb.test()
 async def single_alternate_test(dut):
@@ -199,15 +192,15 @@ async def single_alternate_test(dut):
     stream[1::2, 1::2] = 1
     await TestManager(dut, stream).run()
 
+
 @cocotb.test()
 async def single_random_test(dut):
     await clock_test(dut)
     await reset_test(dut)
     width = int(dut.DEPTH_P.value)
-    height = 4 * width
     np.random.seed(42)
-    stream = np.random.randint(0, 256, size=(height, width), dtype=np.uint8)
-    await TestManager(dut, stream).run()
+    await TestManager(dut, np.random.randint(0, 256, size=(4 * width, width), dtype=np.uint8)).run()
+
 
 @cocotb.test()
 async def single_image_test(dut):
